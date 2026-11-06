@@ -1,0 +1,1353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Backflow Tester Simulator</title>
+<style>
+:root{
+  --bg:#0f1418; --panel:#171e24; --panel2:#1f2830; --border:#2e3a44; --text:#e8eef3; --muted:#93a1ad;
+  --blue:#4aa3ff; --green:#3fbf6a; --red:#f2584c; --yellow:#f0b429; --accent:#f0b429;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;font-size:14px;min-height:100vh}
+header{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--border)}
+header h1{font-size:16px;font-weight:700;letter-spacing:.01em;white-space:nowrap}
+header h1 span{color:var(--accent)}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.seg button{background:var(--panel2);color:var(--muted);border:0;padding:7px 13px;font-size:13px;font-weight:600;cursor:pointer}
+.seg button+button{border-left:1px solid var(--border)}
+.seg button.on{background:var(--accent);color:#1b1400}
+.stats{margin-left:auto;color:var(--muted);font-size:12px}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 370px;min-height:calc(100vh - 54px)}
+.stage{position:relative;background:#11171c;border-right:1px solid var(--border);display:flex;flex-direction:column}
+#scene{width:100%;height:auto;display:block;touch-action:none;user-select:none;-webkit-user-select:none}
+.toast{position:absolute;top:10px;left:50%;transform:translateX(-50%);background:rgba(15,20,24,.92);color:#fff;border:1px solid var(--accent);padding:7px 14px;border-radius:20px;font-size:13px;font-weight:600;opacity:0;transition:opacity .25s;pointer-events:none;white-space:nowrap}
+.toast.show{opacity:1}
+.tip{position:absolute;pointer-events:none;background:#000c;color:#fff;font-size:12px;font-weight:600;padding:4px 8px;border-radius:6px;display:none;white-space:nowrap}
+.help{padding:10px 14px;font-size:12px;color:var(--muted);line-height:1.6;border-top:1px solid var(--border);display:flex;flex-wrap:wrap;gap:4px 18px}
+.help b{color:var(--text)}
+.side{overflow-y:auto;max-height:calc(100vh - 54px)}
+.card{padding:14px 16px;border-bottom:1px solid var(--border)}
+.card h3{font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);margin-bottom:9px;display:flex;justify-content:space-between;align-items:center}
+.devname{font-size:15px;font-weight:700;margin-bottom:4px}
+.sub{color:var(--muted);font-size:12px;line-height:1.5}
+.btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.btn{background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:7px;padding:7px 12px;font-size:12.5px;font-weight:600;cursor:pointer}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);color:#1b1400;border-color:var(--accent)}
+.btn.on{border-color:var(--blue);color:var(--blue)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.timer{font-variant-numeric:tabular-nums;color:var(--text);font-weight:700}
+.steps{display:flex;flex-direction:column;gap:5px}
+.sec{font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.06em;margin:8px 0 2px}
+.step{display:flex;gap:9px;padding:7px 9px;border-radius:7px;border:1px solid transparent;background:var(--panel2);font-size:12.5px;line-height:1.45}
+.step .n{flex:0 0 20px;height:20px;border-radius:50%;background:#2c3842;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700}
+.step.done{opacity:.55}.step.done .n{background:var(--green);color:#06220f}
+.step.cur{border-color:var(--accent);background:#2a2410}
+.step.cur .n{background:var(--accent);color:#1b1400}
+.step.todo{opacity:.5}
+.step .d{color:#c9d3db;margin-top:3px;font-size:12px}
+.exam-note{font-size:12.5px;line-height:1.55;color:#c9d3db}
+.exam-note li{margin-left:18px}
+.row{display:grid;grid-template-columns:120px 1fr;gap:8px;align-items:center;margin-bottom:9px;font-size:12.5px}
+.row>label{color:var(--muted)}
+.row .f{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.row input[type=number]{width:72px;background:#0d1216;border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 7px;font-size:13px;font-variant-numeric:tabular-nums}
+.rad{display:inline-flex;border:1px solid var(--border);border-radius:6px;overflow:hidden}
+.rad input{display:none}
+.rad label{padding:4px 9px;font-size:12px;cursor:pointer;color:var(--muted);background:#0d1216}
+.rad label+input+label{border-left:1px solid var(--border)}
+.rad input:checked+label{background:var(--blue);color:#fff}
+.rad input.bad:checked+label{background:var(--red)}
+.chk{font-size:12px;color:var(--muted);display:inline-flex;gap:4px;align-items:center}
+.res-row{display:grid;grid-template-columns:1fr 64px 64px 22px;gap:6px;font-size:12.5px;padding:5px 0;border-bottom:1px solid #26313a;align-items:center}
+.res-row.hd{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em}
+.ok{color:var(--green);font-weight:800}.no{color:var(--red);font-weight:800}.mid{color:var(--yellow);font-weight:800}
+.score{font-size:30px;font-weight:800;margin:4px 0}
+.verdict{padding:8px 10px;border-radius:7px;margin:8px 0;font-weight:700;font-size:13px}
+.verdict.pass{background:#123821;color:#7de3a1;border:1px solid #2d7a4a}
+.verdict.fail{background:#3a1414;color:#ff9a90;border:1px solid #8a2a22}
+.notes li{margin:4px 0 4px 18px;font-size:12.5px;line-height:1.45;color:#d9c79a}
+.notes li.good{color:#9fd8b0}
+.log{font-size:12px;color:var(--muted);max-height:180px;overflow-y:auto;line-height:1.55;font-variant-numeric:tabular-nums}
+.log div span{color:#6f7d88;margin-right:6px}
+.log .w{color:#f0b429}
+.clickable{cursor:pointer}
+.knob{cursor:ns-resize}
+.hose-end{cursor:grab}
+.pulse{animation:pulse 1.3s ease-in-out infinite}
+@keyframes pulse{0%,100%{filter:none}50%{filter:drop-shadow(0 0 5px #ffd000) drop-shadow(0 0 2px #ffd000)}}
+svg text{font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+.lbl{font-size:10.5px;font-weight:700;fill:#3b2f1f;text-anchor:middle;letter-spacing:.04em}
+.lbl2{font-size:10px;font-weight:800;text-anchor:middle;letter-spacing:.06em}
+.tcl{font-size:12px;font-weight:800;fill:#14212b;paint-order:stroke;stroke:#fff;stroke-width:3px;stroke-linejoin:round}
+.cutl{font-size:11px;font-weight:700;fill:#fff;text-anchor:middle;paint-order:stroke;stroke:#0008;stroke-width:3px}
+.lvl{position:absolute;top:10px;left:10px;background:#171e24e6;color:var(--muted);border:1px solid var(--border);border-radius:16px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer}
+.lvl.on{color:#7de3a1;border-color:#2d7a4a}
+.chkl{display:flex;flex-direction:column;gap:5px;margin:2px 0 12px;font-size:12.5px;color:#c9d3db}
+.chkl label{display:flex;gap:7px;align-items:center;cursor:pointer;padding:2px 4px;border-radius:5px}
+.chkh{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.row{grid-template-columns:132px 1fr}
+@media (max-width:900px){.layout{grid-template-columns:1fr}.side{max-height:none}.stage{border-right:0}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Backflow Tester <span>Simulator</span></h1>
+  <div class="seg" id="devSeg">
+    <button data-dev="rpz" class="on">RPZ</button>
+    <button data-dev="dc">Double Check</button>
+    <button data-dev="pvb">PVB</button>
+  </div>
+  <div class="seg" id="modeSeg">
+    <button data-mode="guided" class="on">Guided</button>
+    <button data-mode="exam">Exam</button>
+  </div>
+  <div class="stats" id="stats"></div>
+</header>
+
+<div class="layout">
+  <section class="stage" id="stage">
+    <svg id="scene" viewBox="0 0 1200 720" xmlns="http://www.w3.org/2000/svg">
+      <defs id="defs"></defs>
+      <g id="gBg"></g>
+      <g id="gDevice"></g>
+      <g id="gCut"></g>
+      <g id="gKit"></g>
+      <g id="gHoses"></g>
+      <g id="gEnds"></g>
+      <g id="gWater"></g>
+    </svg>
+    <button class="lvl" id="btnLevel">Gauge height</button>
+    <div class="toast" id="toast"></div>
+    <div class="tip" id="tip"></div>
+    <div class="help">
+      <span><b>Valves &amp; test cocks:</b> click the handle</span>
+      <span><b>Hoses:</b> drag the brass fitting onto a test cock</span>
+      <span><b>Kit knobs:</b> drag up to open, down to close, or scroll. The tooltip shows turns. Hold Shift for fine control. Double-click = 1 full turn / closed</span>
+      <span><b>Short tube &amp; comp. tee:</b> drag onto a test cock; the tee's orange knob adjusts its valve</span>
+      <span><b>Relief valve / PVB canopy / air inlet:</b> click to place a hand, remove the canopy, or place a finger</span>
+    </div>
+  </section>
+
+  <aside class="side">
+    <div class="card">
+      <h3>Assembly <span class="timer" id="timer">00:00</span></h3>
+      <div class="devname" id="devName"></div>
+      <div class="sub" id="devSub"></div>
+      <div class="btns">
+        <button class="btn primary" id="btnNew">New assembly</button>
+        <button class="btn" id="btnRetry">Restart same one</button>
+        <button class="btn" id="btnCut">Cutaway view</button>
+      </div>
+    </div>
+    <div class="card" id="cardSteps">
+      <h3 id="stepsTitle">Procedure</h3>
+      <div id="steps"></div>
+    </div>
+    <div class="card">
+      <h3>Test report</h3>
+      <div id="report"></div>
+      <div class="btns"><button class="btn primary" id="btnSubmit">Submit report</button></div>
+    </div>
+    <div class="card" id="cardResult" hidden></div>
+    <div class="card">
+      <h3>Field log</h3>
+      <div class="log" id="log"></div>
+    </div>
+  </aside>
+</div>
+
+<script>
+// =====================================================================
+// CONSTANTS & LAYOUT
+// =====================================================================
+const NS = 'http://www.w3.org/2000/svg';
+const $ = id => document.getElementById(id);
+const GROUND = 560;
+const KIT = { cx: 320, cy: 462, r: 82, blockY: 566, knobY: 604, portY: 626 };
+const KNOBS = [
+  { id: 'HB', x: 214, r: 11, color: '#2a2a2a', light: '#777', dark: '#0b0b0b', ring: '#9aa4ad', l1: 'HIGH', l2: 'BLEED', name: 'High bleed' },
+  { id: 'HC', x: 267, r: 15, color: '#c62828', light: '#ff7b6e', dark: '#5e0b0b', ring: '#e53935', l1: 'HIGH', l2: 'CONTROL', name: 'High control' },
+  { id: 'BC', x: 320, r: 15, color: '#e8b10a', light: '#ffe58a', dark: '#6b4f00', ring: '#f2c12e', l1: 'BYPASS', l2: 'CONTROL', name: 'Bypass control' },
+  { id: 'LC', x: 373, r: 15, color: '#1e5bb8', light: '#79aef5', dark: '#0a2452', ring: '#3f86e8', l1: 'LOW', l2: 'CONTROL', name: 'Low control' },
+  { id: 'LB', x: 426, r: 11, color: '#2a2a2a', light: '#777', dark: '#0b0b0b', ring: '#9aa4ad', l1: 'LOW', l2: 'BLEED', name: 'Low bleed' },
+];
+const HOSES = [
+  { id: 'H', node: 'H', name: 'High hose (red)', color: '#d32f2f', dark: '#6d0f0f', port: 250, park: [492, 652] },
+  { id: 'B', node: 'Bh', name: 'Bypass hose (yellow)', color: '#f2c40f', dark: '#7a6100', port: 320, park: [534, 670] },
+  { id: 'L', node: 'L', name: 'Low hose (blue)', color: '#1f6fd1', dark: '#0b3470', port: 390, park: [576, 652] },
+];
+const DEVICES = {
+  rpz: {
+    key: 'rpz', name: 'Reduced Pressure Zone Assembly (RP)', short: 'RPZ', y: 250,
+    sub: 'Two independent checks with a relief valve between them. Test cocks: TC1 ahead of #1 shutoff, TC2 inlet, TC3 zone, TC4 between check #2 and #2 shutoff.',
+    sv: [{ id: 'sv1', x: 260, a: 'S', b: 'A', label: '#1 SHUTOFF' }, { id: 'sv2', x: 950, a: 'D', b: 'O', label: '#2 SHUTOFF' }],
+    tc: [{ id: 'tc1', x: 185, node: 'S', dir: -1 }, { id: 'tc2', x: 372, node: 'A', dir: -1 }, { id: 'tc3', x: 600, node: 'Z', dir: 1 }, { id: 'tc4', x: 862, node: 'D', dir: 1 }],
+    checks: [{ id: 'cv1', x: 480, a: 'A', b: 'Z' }, { id: 'cv2', x: 720, a: 'Z', b: 'D' }],
+    rv: true,
+  },
+  dc: {
+    key: 'dc', name: 'Double Check Valve Assembly (DC)', short: 'DC', y: 250,
+    sub: 'Two independent spring-loaded checks, no relief valve. Test cocks: TC1 ahead of #1 shutoff, TC2 inlet, TC3 between checks, TC4 between check #2 and #2 shutoff.',
+    sv: [{ id: 'sv1', x: 260, a: 'S', b: 'A', label: '#1 SHUTOFF' }, { id: 'sv2', x: 950, a: 'D', b: 'O', label: '#2 SHUTOFF' }],
+    tc: [{ id: 'tc1', x: 185, node: 'S', dir: -1 }, { id: 'tc2', x: 372, node: 'A', dir: -1 }, { id: 'tc3', x: 600, node: 'Z', dir: 1 }, { id: 'tc4', x: 862, node: 'D', dir: 1 }],
+    checks: [{ id: 'cv1', x: 480, a: 'A', b: 'Z' }, { id: 'cv2', x: 720, a: 'Z', b: 'D' }],
+  },
+  pvb: {
+    key: 'pvb', name: 'Pressure Vacuum Breaker (PVB)', short: 'PVB', y: 290,
+    sub: 'One spring-loaded check plus a spring-loaded air inlet under the canopy. TC1 is upstream of the check, TC2 is the body (downstream of the check).',
+    sv: [{ id: 'sv1', x: 240, a: 'S', b: 'A', label: '#1 SHUTOFF' }, { id: 'sv2', x: 780, a: 'B', b: 'O', label: '#2 SHUTOFF' }],
+    tc: [{ id: 'tc1', x: 380, node: 'A', dir: -1 }, { id: 'tc2', x: 650, node: 'B', dir: 1 }],
+    checks: [{ id: 'ck', x: 550, a: 'A', b: 'B' }],
+    ai: true,
+  },
+};
+const CAP = { S: Infinity, atm: Infinity, A: 1, Z: 1, D: 1, B: 1, O: 3, H: 0.5, L: 0.5, M: 0.2, Bh: 0.5 };
+const IC = {}; for (const k in CAP) IC[k] = CAP[k] === Infinity ? 0 : 1 / CAP[k];
+
+// =====================================================================
+// STATE
+// =====================================================================
+let devKey = 'rpz', mode = 'guided', D = DEVICES.rpz;
+let st = null, params = null, cutaway = false;
+const rnd = (a, b) => a + Math.random() * (b - a);
+const r1 = x => Math.round(x * 10) / 10;
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const KIT_START = 1; // needle valves come out of the case open (storage position)
+
+function genParams(key) {
+  const p = { S: r1(rnd(55, 85)) };
+  const chk = (passLo, passHi) => {
+    const m = Math.random();
+    if (m < 0.74) return { k: r1(rnd(passLo, passHi)), lf: 0 };
+    if (m < 0.88) return { k: r1(rnd(0.3, 0.9)), lf: 0 };
+    return { k: r1(rnd(1.4, 4.5)), lf: rnd(0.15, 0.45) };
+  };
+  const leak = prob => Math.random() < prob ? rnd(0.3, 0.8) : 0;
+  if (key === 'rpz') {
+    p.rv = { k: Math.random() < 0.8 ? r1(rnd(2.3, 4.6)) : r1(rnd(1.0, 1.9)) };
+    const k1 = Math.random() < 0.8 ? Math.max(rnd(5.4, 9.5), p.rv.k + 3.3) : rnd(Math.max(p.rv.k + 0.7, 2.8), Math.max(p.rv.k + 0.9, 4.8));
+    p.cv1 = { k: r1(k1), lf: 0 };
+    p.cv2 = { k: Math.random() < 0.12 ? r1(rnd(0.4, 0.9)) : r1(rnd(1.2, 4.5)), lr: Math.random() < 0.2 ? rnd(0.25, 0.7) : 0 };
+    p.sv1 = { leak: 0 }; p.sv2 = { leak: leak(0.14) };
+  } else if (key === 'dc') {
+    p.cv1 = chk(1.6, 8.0); p.cv2 = chk(1.3, 6.0);
+    p.sv1 = { leak: leak(0.15) }; p.sv2 = { leak: leak(0.15) };
+  } else {
+    const m = Math.random();
+    p.ai = m < 0.78 ? { k: r1(rnd(1.1, 2.8)), works: true } : m < 0.9 ? { k: r1(rnd(0.3, 0.9)), works: true } : { k: 0, works: false };
+    p.ck = chk(1.2, 4.0);
+    p.sv1 = { leak: 0 }; p.sv2 = { leak: 0 };
+  }
+  return p;
+}
+
+function freshState(p) {
+  const P = { S: p.S, atm: 0, A: p.S, Z: 0, D: 0, B: 0, O: 0, H: 0, L: 0, M: 0, Bh: 0 };
+  if (devKey === 'pvb') { P.B = p.S - p.ck.k; P.O = P.B; }
+  else { P.Z = p.S - p.cv1.k; P.D = P.Z - p.cv2.k; P.O = P.D; }
+  const s = {
+    P, t: 0, sv: {}, tc: {}, hose: {},
+    kit: { HB: KIT_START, HC: KIT_START, BC: KIT_START, LC: KIT_START, LB: KIT_START },
+    acc: {
+      tube: { att: null, x: 664, y: 676, gy: 676, drag: false, filled: false, fillT: 0 },
+      tee: { att: null, x: 718, y: 676, gy: 676, drag: false, t: 0 },
+    },
+    leveled: false, hand: false, finger: false, canopyOff: false,
+    flushOpen: [], flushClose: [], hosesEverOn: false,
+    needle: 0, noise: 0, aiOpen: false, rvDis: false, events: [], flags: {}, hist: [],
+    step: 0, stepMem: {}, submitted: false, F: {}, Fa: {}, sprayMsg: {},
+  };
+  for (const v of D.sv) s.sv[v.id] = { t: 1, s: 1 };
+  for (const t of D.tc) s.tc[t.id] = { t: 0, s: 0, flushed: false, openT: 0 };
+  for (const h of HOSES) s.hose[h.id] = { att: null, x: h.park[0], y: h.park[1], gy: h.park[1], drag: false, purged: false, purgeT: 0 };
+  return s;
+}
+
+// =====================================================================
+// SVG HELPERS
+// =====================================================================
+function defs() {
+  const stops = (arr) => arr.map((c, i) => `<stop offset="${(i / (arr.length - 1)).toFixed(3)}" stop-color="${c}"/>`).join('');
+  const bronze = ['#4a2f0c', '#9b6f2f', '#e9c983', '#f6dda6', '#c4944a', '#8a5f25', '#4f330e'];
+  const bronzeDk = ['#3a240a', '#7a5524', '#c79c58', '#a77b3c', '#5e3d12', '#33200a'];
+  const copper = ['#5b2a0e', '#a85a26', '#eaa877', '#f6c8a3', '#c46d34', '#7a3814', '#4f230b'];
+  const steel = ['#585e64', '#b9c0c6', '#f4f6f8', '#ffffff', '#c3c9ce', '#7d848a', '#4b5156'];
+  const blue = ['#07285c', '#1f5fc0', '#5d9bf0', '#2a67c6', '#0a2a5e'];
+  const canopy = ['#163a20', '#2f6b3d', '#4d9660', '#2d653a', '#173a20'];
+  let s = '';
+  const lg = (id, arr, h) => `<linearGradient id="${id}" x1="0" y1="0" x2="${h ? 1 : 0}" y2="${h ? 0 : 1}">${stops(arr)}</linearGradient>`;
+  s += lg('gBronze', bronze) + lg('gBronzeV', bronze, 1) + lg('gBronzeDk', bronzeDk) + lg('gBronzeDkV', bronzeDk, 1);
+  s += lg('gCopper', copper) + lg('gCopperV', copper, 1) + lg('gSteel', steel) + lg('gSteelV', steel, 1);
+  s += lg('gBlue', blue) + lg('gCanopy', canopy, 1);
+  s += `<linearGradient id="gWall" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ece3d2"/><stop offset="1" stop-color="#d6c8ae"/></linearGradient>`;
+  s += `<linearGradient id="gPad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#bdb8ad"/><stop offset="1" stop-color="#9c968b"/></linearGradient>`;
+  s += `<radialGradient id="gElbow" cx=".38" cy=".35" r=".75"><stop offset="0" stop-color="#f6c8a3"/><stop offset=".45" stop-color="#c46d34"/><stop offset="1" stop-color="#4f230b"/></radialGradient>`;
+  s += `<radialGradient id="gFace" cx=".42" cy=".32" r=".8"><stop offset="0" stop-color="#ffffff"/><stop offset=".7" stop-color="#f3f1ea"/><stop offset="1" stop-color="#d9d5c8"/></radialGradient>`;
+  s += `<radialGradient id="gBezel" cx=".4" cy=".3" r=".8"><stop offset="0" stop-color="#ffffff"/><stop offset=".5" stop-color="#b9c0c6"/><stop offset="1" stop-color="#3f454a"/></radialGradient>`;
+  for (const k of KNOBS) s += `<radialGradient id="gk-${k.id}" cx=".36" cy=".3" r=".8"><stop offset="0" stop-color="${k.light}"/><stop offset=".55" stop-color="${k.color}"/><stop offset="1" stop-color="${k.dark}"/></radialGradient>`;
+  s += `<filter id="fShadow" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="3" stdDeviation="2.5" flood-color="#000" flood-opacity=".35"/></filter>`;
+  $('defs').innerHTML = s;
+}
+
+const pipeH = (x1, x2, y) => `<rect x="${x1}" y="${y - 16}" width="${x2 - x1}" height="32" fill="url(#gCopper)"/>`;
+const pipeV = (x, y1, y2) => `<rect x="${x - 16}" y="${y1}" width="32" height="${y2 - y1}" fill="url(#gCopperV)"/>`;
+const elbow = (x, y) => `<rect x="${x - 21}" y="${y - 21}" width="42" height="42" rx="18" fill="url(#gElbow)" stroke="#4f230b" stroke-width="1"/>`;
+const hexNut = (x, y, w) => `<rect x="${x}" y="${y - 22}" width="${w}" height="44" rx="2" fill="url(#gBronzeDk)" stroke="#33200a" stroke-width="1"/><line x1="${x + w / 2}" y1="${y - 21}" x2="${x + w / 2}" y2="${y + 21}" stroke="#2a1a06" stroke-width=".7" opacity=".6"/>`;
+
+function background() {
+  let s = `<rect width="1200" height="${GROUND}" fill="url(#gWall)"/>`;
+  // stucco speckle + control joint
+  for (let i = 0; i < 160; i++) s += `<circle cx="${(i * 97.3) % 1200}" cy="${(i * 53.7) % 540}" r="${0.8 + (i % 3) * 0.5}" fill="#b9a988" opacity=".25"/>`;
+  s += `<line x1="0" y1="140" x2="1200" y2="140" stroke="#cbbb9f" stroke-width="2"/>`;
+  s += `<rect x="0" y="${GROUND - 18}" width="1200" height="18" fill="#cdbd9f"/><rect x="0" y="${GROUND - 18}" width="1200" height="3" fill="#e9dcc3"/>`;
+  $('gBg').innerHTML = s;
+}
+function ground() {
+  let s = `<rect x="0" y="${GROUND}" width="1200" height="${720 - GROUND}" fill="url(#gPad)"/>`;
+  s += `<rect x="0" y="${GROUND}" width="1200" height="4" fill="#8d877c"/>`;
+  s += `<line x1="760" y1="${GROUND}" x2="700" y2="720" stroke="#8a8478" stroke-width="2"/><line x1="0" y1="660" x2="1200" y2="660" stroke="#a7a196" stroke-width="1.5"/>`;
+  for (let i = 0; i < 90; i++) s += `<circle cx="${(i * 131.7) % 1200}" cy="${GROUND + 8 + (i * 37.3) % 150}" r="1.2" fill="#7f796e" opacity=".35"/>`;
+  return s;
+}
+
+function ballValve(v, y) {
+  const x = v.x;
+  return `<g id="g-sv-${v.id}" data-kind="sv" data-id="${v.id}" class="clickable" filter="url(#fShadow)">
+    ${hexNut(x - 46, y, 12)}${hexNut(x + 34, y, 12)}
+    <rect x="${x - 34}" y="${y - 26}" width="68" height="52" rx="13" fill="url(#gBronze)" stroke="#4a2f0c" stroke-width="1.4"/>
+    <rect x="${x - 26}" y="${y - 26}" width="52" height="52" rx="18" fill="url(#gBronze)" opacity=".55"/>
+    <text x="${x}" y="${y + 18}" font-size="8" font-weight="800" fill="#6b4a1a" text-anchor="middle" opacity=".8">FULL PORT</text>
+    <rect x="${x - 6}" y="${y - 45}" width="12" height="21" fill="url(#gSteelV)" stroke="#444" stroke-width=".8"/>
+    <rect x="${x - 12}" y="${y - 36}" width="24" height="9" rx="1.5" fill="url(#gBronzeDk)" stroke="#33200a" stroke-width=".7"/>
+    <g transform="translate(${x},${y - 47})">
+      <g id="lev-${v.id}">
+        <rect x="0" y="-5" width="80" height="10" rx="3" fill="url(#gSteel)" stroke="#333" stroke-width=".8"/>
+        <rect x="26" y="-7" width="56" height="14" rx="7" fill="url(#gBlue)" stroke="#06204a" stroke-width=".8"/>
+      </g>
+      <ellipse id="levend-${v.id}" cx="0" cy="-2" rx="9" ry="7.5" fill="url(#gBlue)" stroke="#06204a" stroke-width=".8" opacity="0"/>
+      <circle r="6" fill="url(#gSteel)" stroke="#333" stroke-width=".8"/><circle r="2" fill="#555"/>
+    </g>
+    <text x="${x}" y="${y + 47}" class="lbl">${v.label}</text>
+    <text id="svst-${v.id}" x="${x}" y="${y + 60}" class="lbl2" fill="#1f7a3e">OPEN</text>
+    <rect x="${x - 50}" y="${y - 64}" width="140" height="94" fill="transparent"/>
+  </g>`;
+}
+
+function testCock(t, y) {
+  const x = t.x, y0 = y - 16, dir = t.dir || 1, px = x + 11 * dir;
+  const lx = x - 15 * dir, anchor = dir > 0 ? 'end' : 'start';
+  const hx = dir > 0 ? x - 18 : x - 40;
+  return `<g id="g-tc-${t.id}" data-kind="tc" data-id="${t.id}" class="clickable">
+    <rect x="${x - 12}" y="${y0 - 9}" width="24" height="11" rx="1.5" fill="url(#gBronzeDk)" stroke="#33200a" stroke-width=".8"/>
+    <rect x="${x - 9}" y="${y0 - 31}" width="18" height="23" rx="3" fill="url(#gBronzeV)" stroke="#4a2f0c" stroke-width=".8"/>
+    <rect x="${x - 5.5}" y="${y0 - 42}" width="11" height="12" fill="url(#gBronzeV)" stroke="#4a2f0c" stroke-width=".6"/>
+    <line x1="${x - 5.5}" y1="${y0 - 39}" x2="${x + 5.5}" y2="${y0 - 38}" stroke="#5a3b12" stroke-width=".7"/>
+    <line x1="${x - 5.5}" y1="${y0 - 36}" x2="${x + 5.5}" y2="${y0 - 35}" stroke="#5a3b12" stroke-width=".7"/>
+    <line x1="${x - 5.5}" y1="${y0 - 33}" x2="${x + 5.5}" y2="${y0 - 32}" stroke="#5a3b12" stroke-width=".7"/>
+    <ellipse cx="${x}" cy="${y0 - 42}" rx="3" ry="1.4" fill="#1b1206"/>
+    <g transform="translate(${px},${y0 - 20}) scale(${dir},1)">
+      <g id="lev-${t.id}"><rect x="0" y="-3.2" width="25" height="6.4" rx="3.2" fill="#e07a1f" stroke="#6e3304" stroke-width=".8"/></g>
+      <circle r="3.6" fill="url(#gSteel)" stroke="#444" stroke-width=".6"/>
+    </g>
+    <text x="${lx}" y="${y0 - 26}" class="tcl" text-anchor="${anchor}">${t.id.toUpperCase()}</text>
+    <circle id="snap-${t.id}" cx="${x}" cy="${y0 - 42}" r="18" fill="none" stroke="#ffd000" stroke-width="3" opacity="0"/>
+    <rect x="${hx}" y="${y0 - 50}" width="58" height="52" fill="transparent"/>
+  </g>`;
+}
+
+function checkCap(cx, y, n) {
+  let bolts = '';
+  for (let i = -2; i <= 2; i++) bolts += `<circle cx="${cx + i * 24}" cy="${y - 31}" r="3.2" fill="#2d1d07"/><circle cx="${cx + i * 24 - 0.8}" cy="${y - 31.8}" r="1.1" fill="#d9b874"/>`;
+  return `<rect x="${cx - 60}" y="${y - 38}" width="120" height="14" rx="3" fill="url(#gBronzeDk)" stroke="#33200a" stroke-width="1"/>
+    <path d="M${cx - 52} ${y - 38} C${cx - 52} ${y - 86} ${cx + 52} ${y - 86} ${cx + 52} ${y - 38} Z" fill="url(#gBronze)" stroke="#4a2f0c" stroke-width="1.2"/>
+    <path d="M${cx - 38} ${y - 46} C${cx - 34} ${y - 70} ${cx - 6} ${y - 76} ${cx + 8} ${y - 76}" stroke="#fff3cf" stroke-width="3" fill="none" opacity=".45" stroke-linecap="round"/>
+    <rect x="${cx - 11}" y="${y - 82}" width="22" height="10" rx="2" fill="url(#gBronzeDk)" stroke="#33200a" stroke-width=".8"/>
+    ${bolts}
+    <text x="${cx + 1}" y="${y - 50}" font-size="13" font-weight="900" text-anchor="middle" fill="#fff0c8" opacity=".55">CHECK #${n}</text>
+    <text x="${cx}" y="${y - 51}" font-size="13" font-weight="900" text-anchor="middle" fill="#6b4a1a" opacity=".75">CHECK #${n}</text>`;
+}
+
+// ---------------------------------------------------------------------
+function drawDevice() {
+  const y = D.y; let s = '';
+  if (D.key === 'pvb') {
+    s += pipeV(140, y, 600) + pipeV(920, y, 600) + ground() + elbow(140, y) + elbow(920, y);
+    s += pipeH(140, 194, y) + pipeH(286, 336, y) + pipeH(710, 734, y) + pipeH(826, 920, y);
+    s += `<g filter="url(#fShadow)">`;
+    s += hexNut(330, y, 12);
+    s += `<rect x="340" y="${y - 25}" width="170" height="50" rx="12" fill="url(#gBronze)" stroke="#4a2f0c" stroke-width="1.4"/>`;
+    s += `<rect x="592" y="${y - 25}" width="108" height="50" rx="12" fill="url(#gBronze)" stroke="#4a2f0c" stroke-width="1.4"/>`;
+    s += hexNut(698, y, 12);
+    s += `<rect x="498" y="${y - 100}" width="104" height="144" rx="20" fill="url(#gBronzeV)" stroke="#4a2f0c" stroke-width="1.4"/>`;
+    s += `<rect x="506" y="${y + 30}" width="88" height="12" rx="3" fill="url(#gBronzeDk)" stroke="#33200a" stroke-width=".8"/>`;
+    s += `<text x="551" y="${y + 2}" font-size="15" font-weight="900" text-anchor="middle" fill="#fff0c8" opacity=".5">PVB</text><text x="550" y="${y + 1}" font-size="15" font-weight="900" text-anchor="middle" fill="#6b4a1a" opacity=".8">PVB</text>`;
+    s += `<text x="425" y="${y + 5}" font-size="12" font-weight="900" text-anchor="middle" fill="#6b4a1a" opacity=".6">FLOW →</text>`;
+    s += `<rect x="490" y="${y - 114}" width="120" height="16" rx="4" fill="url(#gBronzeDk)" stroke="#33200a" stroke-width="1"/>`;
+    for (let i = 0; i < 5; i++) s += `<circle cx="${504 + i * 23}" cy="${y - 106}" r="3" fill="#2d1d07"/>`;
+    s += `<rect id="pvb-vent" x="484" y="${y - 124}" width="132" height="10" fill="#151515"/>`;
+    s += `<rect id="pvb-poppet" x="506" y="${y - 124}" width="88" height="6" rx="2" fill="#d8d8d0"/>`;
+    s += `</g>`;
+    s += `<g id="g-poppet" data-kind="poppet" class="clickable" style="display:none"><rect x="520" y="${y - 142}" width="60" height="20" rx="4" fill="url(#gSteel)" stroke="#555"/><rect id="poppet-cap" x="532" y="${y - 150}" width="36" height="9" rx="4" fill="#e9e9e2" stroke="#777"/><text x="550" y="${y - 158}" font-size="9" font-weight="800" text-anchor="middle" fill="#2b3a2e">AIR INLET POPPET</text><rect x="505" y="${y - 180}" width="90" height="60" fill="transparent"/></g>`;
+    s += `<g id="g-finger" opacity="0" pointer-events="none"><rect x="538" y="${y - 218}" width="24" height="68" rx="11" fill="#e2b08c" stroke="#a8754f"/><rect x="542" y="${y - 164}" width="16" height="11" rx="5" fill="#f4d9c7" stroke="#c99a7a"/></g>`;
+    s += `<g id="g-canopy" data-kind="canopy" class="clickable" filter="url(#fShadow)">`;
+    s += `<path d="M474 ${y - 122} L474 ${y - 136} C474 ${y - 206} 626 ${y - 206} 626 ${y - 136} L626 ${y - 122} Z" fill="url(#gCanopy)" stroke="#0e2414" stroke-width="1.4"/>`;
+    s += `<path d="M492 ${y - 146} C498 ${y - 182} 530 ${y - 192} 556 ${y - 192}" stroke="#bfe8c8" stroke-width="4" fill="none" opacity=".35" stroke-linecap="round"/>`;
+    for (let i = 0; i < 6; i++) s += `<line x1="${488 + i * 25}" y1="${y - 128}" x2="${488 + i * 25}" y2="${y - 140}" stroke="#0e2414" stroke-width="1.2" opacity=".6"/>`;
+    s += `<text x="550" y="${y - 150}" font-size="11" font-weight="800" text-anchor="middle" fill="#cfe9d4" opacity=".85">AIR INLET</text></g>`;
+    s += `<g id="g-ai"><text id="ai-hiss" x="550" y="${y - 228}" font-size="13" font-weight="800" fill="#2b6b3a" text-anchor="middle" opacity="0">~ hsssss ~</text></g>`;
+  } else {
+    const rp = D.key === 'rpz';
+    s += pipeV(120, y, 600) + pipeV(1080, y, 600) + ground() + elbow(120, y) + elbow(1080, y);
+    s += pipeH(120, 214, y) + pipeH(306, 345, y) + pipeH(845, 904, y) + pipeH(996, 1080, y);
+    s += `<g filter="url(#fShadow)">`;
+    if (rp) {
+      s += `<path d="M392 ${y + 20} C392 ${y + 104} 470 ${y + 104} 546 ${y + 104}" stroke="#4f230b" stroke-width="8" fill="none"/>`;
+      s += `<path d="M392 ${y + 20} C392 ${y + 104} 470 ${y + 104} 546 ${y + 104}" stroke="#c97a3f" stroke-width="5" fill="none"/>`;
+      s += `<g id="g-rv" data-kind="rvport" class="clickable"><rect x="572" y="${y + 16}" width="56" height="38" fill="url(#gBronzeV)" stroke="#4a2f0c" stroke-width="1"/>`;
+      s += `<rect x="544" y="${y + 50}" width="112" height="82" rx="18" fill="url(#gBronzeV)" stroke="#4a2f0c" stroke-width="1.4"/>`;
+      s += `<rect x="538" y="${y + 58}" width="124" height="11" rx="3" fill="url(#gBronzeDk)" stroke="#33200a" stroke-width=".8"/>`;
+      for (let i = 0; i < 5; i++) s += `<circle cx="${550 + i * 25}" cy="${y + 63.5}" r="2.6" fill="#2d1d07"/>`;
+      s += `<rect x="582" y="${y + 130}" width="36" height="22" fill="url(#gBronzeV)" stroke="#4a2f0c" stroke-width="1"/>`;
+      s += `<ellipse cx="600" cy="${y + 152}" rx="18" ry="5" fill="#1b1206"/>`;
+      s += `<text x="600" y="${y + 100}" font-size="10" font-weight="900" text-anchor="middle" fill="#6b4a1a" opacity=".8">RELIEF</text><text x="600" y="${y + 112}" font-size="10" font-weight="900" text-anchor="middle" fill="#6b4a1a" opacity=".8">VALVE</text></g>`;
+    }
+    s += hexNut(333, y, 14) + hexNut(831, y, 14);
+    s += `<rect x="345" y="${y - 25}" width="488" height="50" rx="16" fill="url(#gBronze)" stroke="#4a2f0c" stroke-width="1.4"/>`;
+    s += `<line x1="350" y1="${y + 3}" x2="828" y2="${y + 3}" stroke="#5e3d12" stroke-width=".8" opacity=".5"/>`;
+    s += checkCap(480, y, 1) + checkCap(720, y, 2);
+    const tag = rp ? 'RP ASSEMBLY' : 'DOUBLE CHECK';
+    s += `<text x="${rp ? 560 : 601}" y="${y + 16}" font-size="11" font-weight="900" text-anchor="middle" fill="#fff0c8" opacity=".45">${rp ? '' : tag + '   FLOW →'}</text>`;
+    s += `<text x="${rp ? 660 : 600}" y="${y + 15}" font-size="11" font-weight="900" text-anchor="middle" fill="#6b4a1a" opacity=".75">${rp ? 'FLOW →' : tag + '   FLOW →'}</text>`;
+    s += `</g>`;
+  }
+  for (const v of D.sv) s += ballValve(v, y);
+  for (const t of D.tc) s += testCock(t, y);
+  if (D.rv) s += `<g id="rv-hand" opacity="0" pointer-events="none"><ellipse cx="600" cy="${y + 188}" rx="28" ry="10" fill="#e2b08c" stroke="#a8754f"/>${[0, 1, 2, 3].map(i => `<rect x="${571 + i * 12}" y="${y + 171}" width="10" height="19" rx="5" fill="#e2b08c" stroke="#a8754f"/>`).join('')}<rect x="622" y="${y + 182}" width="26" height="10" rx="5" fill="#e2b08c" stroke="#a8754f"/></g>`;
+  $('gDevice').innerHTML = s;
+  drawCutaway();
+}
+
+function drawCutaway() {
+  const y = D.y; let s = '';
+  const box = (id, x, yy, w, h, rx = 4) => `<rect id="cut-${id}" x="${x}" y="${yy}" width="${w}" height="${h}" rx="${rx}" stroke="#ffffff55" stroke-width="1"/>`;
+  const lab = (id, x, yy) => `<text id="cutl-${id}" x="${x}" y="${yy}" class="cutl"></text>`;
+  const spring = (x, dir) => { let pts = []; for (let i = 0; i <= 8; i++) pts.push(`${x + dir * (8 + i * 3.2)},${y + (i % 2 ? -12 : 12)}`); return pts.join(' '); };
+  if (D.key === 'pvb') {
+    s += `<rect x="342" y="${y - 23}" width="358" height="46" rx="10" fill="#0b141c" opacity=".9"/><rect x="500" y="${y - 98}" width="100" height="140" rx="18" fill="#0b141c" opacity=".9"/>`;
+    s += box('A1', 346, y - 19, 160, 38) + box('A2', 506, y - 34, 88, 70);
+    s += box('B1', 506, y - 92, 88, 50) + box('B2', 594, y - 19, 102, 38);
+    s += `<g id="cutdisc-ck"><rect x="510" y="${y - 41}" width="80" height="7" rx="2" fill="#e8e8e8"/><polyline points="${[0, 1, 2, 3, 4, 5, 6].map(i => `${520 + i * 10},${y - 44 - (i % 2 ? 10 : 0)}`).join(' ')}" fill="none" stroke="#ddd" stroke-width="1.5"/></g>`;
+    s += lab('A', 425, y + 4) + lab('B', 645, y + 4) + lab('ai', 550, y - 72);
+    s += lab('S', 175, y + 40) + lab('O', 870, y + 40);
+  } else {
+    s += `<rect x="347" y="${y - 23}" width="484" height="46" rx="14" fill="#0b141c" opacity=".9"/>`;
+    s += box('A', 351, y - 19, 120, 38) + box('Z', 490, y - 19, 220, 38) + box('D', 730, y - 19, 97, 38);
+    for (const c of D.checks) s += `<g id="cutdisc-${c.id}"><rect x="${c.x - 6}" y="${y - 19}" width="7" height="38" rx="2" fill="#e8e8e8"/><polyline points="${spring(c.x, 1)}" fill="none" stroke="#ddd" stroke-width="1.5"/></g>`;
+    s += lab('A', 411, y + 4) + lab('Z', 600, y + 4) + lab('D', 778, y + 4) + lab('S', 168, y + 40) + lab('O', 1030, y + 40);
+    if (D.rv) {
+      s += `<rect x="550" y="${y + 70}" width="100" height="58" rx="12" fill="#0b141c" opacity=".9"/>` + box('R', 556, y + 74, 88, 50, 8);
+      s += `<rect id="cut-rvp" x="572" y="${y + 112}" width="56" height="8" rx="2" fill="#e8e8e8"/>` + lab('rv', 600, y + 98);
+    }
+  }
+  $('gCut').innerHTML = s;
+  $('gCut').style.display = cutaway ? '' : 'none';
+}
+
+// ---------------------------------------------------------------------
+function gaugeAngle(v) { return -135 + clamp(v, -0.45, 15.45) / 15 * 270; }
+function drawKit() {
+  const { cx, cy, r } = KIT; let s = '';
+  s += `<ellipse cx="320" cy="694" rx="150" ry="11" fill="#000" opacity=".28"/>`;
+  s += `<rect x="286" y="336" width="68" height="26" rx="10" fill="none" stroke="#15181b" stroke-width="7"/>`;
+  s += `<rect x="186" y="356" width="268" height="336" rx="16" fill="#2a2e33" stroke="#0d0f11" stroke-width="2"/>`;
+  s += `<rect x="198" y="368" width="244" height="312" rx="10" fill="#3a4047"/>`;
+  for (let i = 0; i < 11; i++) for (let j = 0; j < 14; j++) s += `<circle cx="${210 + i * 22}" cy="${380 + j * 22}" r="6" fill="#333940" opacity=".7"/>`;
+  // stem + block
+  s += `<rect x="${cx - 11}" y="${cy + r + 6}" width="22" height="${KIT.blockY - cy - r - 4}" fill="url(#gSteelV)" stroke="#555" stroke-width=".8"/>`;
+  s += `<rect x="194" y="${KIT.blockY}" width="252" height="60" rx="7" fill="url(#gSteel)" stroke="#50575d" stroke-width="1.2"/>`;
+  s += `<rect x="198" y="${KIT.blockY + 3}" width="244" height="2" fill="#fff" opacity=".6"/>`;
+  for (const k of KNOBS) {
+    s += `<text x="${k.x}" y="${KIT.blockY + 11}" font-size="7.2" font-weight="800" text-anchor="middle" fill="#1d2329">${k.l1}</text>`;
+    s += `<text x="${k.x}" y="${KIT.blockY + 19}" font-size="6.6" font-weight="700" text-anchor="middle" fill="#3b444c">${k.l2}</text>`;
+  }
+  // bleed nozzles + hose ports
+  for (const x of [214, 426]) s += `<rect x="${x - 3}" y="${KIT.portY}" width="6" height="9" fill="url(#gSteelV)" stroke="#555" stroke-width=".6"/>`;
+  for (const h of HOSES) s += `<rect x="${h.port - 9}" y="${KIT.portY}" width="18" height="10" rx="1.5" fill="url(#gBronzeV)" stroke="#4a2f0c" stroke-width=".8"/>`;
+  // gauge
+  s += `<g id="gauge" filter="url(#fShadow)"><circle cx="${cx}" cy="${cy}" r="${r + 11}" fill="url(#gBezel)" stroke="#2a2e32" stroke-width="1.5"/>`;
+  s += `<circle cx="${cx}" cy="${cy}" r="${r + 3}" fill="#1a1c1e"/><circle cx="${cx}" cy="${cy}" r="${r}" fill="url(#gFace)"/>`;
+  const pt = (v, R) => { const a = gaugeAngle(v) * Math.PI / 180; return [cx + R * Math.sin(a), cy - R * Math.cos(a)]; };
+  // green band 1-15? keep a subtle band showing scale ends
+  for (let i = 0; i <= 75; i++) {
+    const v = i * 0.2, maj = i % 5 === 0, half = i % 5 === 0 ? false : (i % 5 === 2.5);
+    const len = maj ? 12 : 6, w = maj ? 1.7 : 0.8;
+    const [x1, y1] = pt(v, r - 4), [x2, y2] = pt(v, r - 4 - len);
+    s += `<line x1="${x1.toFixed(2)}" y1="${y1.toFixed(2)}" x2="${x2.toFixed(2)}" y2="${y2.toFixed(2)}" stroke="#111" stroke-width="${w}"/>`;
+    if (maj) { const [tx, ty] = pt(v, r - 26); s += `<text x="${tx.toFixed(1)}" y="${(ty + 4).toFixed(1)}" font-size="${v >= 10 ? 10.5 : 11.5}" font-weight="800" text-anchor="middle" fill="#111">${v}</text>`; }
+  }
+  for (let v = 0.5; v < 15; v += 1) { const [x1, y1] = pt(v, r - 4), [x2, y2] = pt(v, r - 13); s += `<line x1="${x1.toFixed(2)}" y1="${y1.toFixed(2)}" x2="${x2.toFixed(2)}" y2="${y2.toFixed(2)}" stroke="#111" stroke-width="1.1"/>`; }
+  const [sx, sy] = pt(-0.45, r - 9);
+  s += `<circle cx="${sx}" cy="${sy}" r="2.2" fill="#666"/>`;
+  s += `<text x="${cx}" y="${cy - 24}" font-size="7.5" font-weight="700" text-anchor="middle" fill="#444" letter-spacing=".08em">DIFFERENTIAL</text>`;
+  s += `<text x="${cx}" y="${cy + 26}" font-size="12" font-weight="900" text-anchor="middle" fill="#111">PSID</text>`;
+  s += `<g id="lcdg"><rect x="${cx - 30}" y="${cy + 36}" width="60" height="22" rx="3" fill="#18261a" stroke="#0a120b"/><text id="lcd" x="${cx}" y="${cy + 52}" font-size="14" font-weight="700" text-anchor="middle" fill="#7ff08f" font-family="ui-monospace,Menlo,monospace">0.0</text></g>`;
+  s += `<g id="needle" transform="rotate(-135 ${cx} ${cy})"><polygon points="${cx - 2.8},${cy + 16} ${cx},${cy - r + 8} ${cx + 2.8},${cy + 16}" fill="#b71c1c"/><circle cx="${cx}" cy="${cy}" r="7.5" fill="#1d1d1d"/><circle cx="${cx}" cy="${cy}" r="2.6" fill="#999"/></g>`;
+  s += `<path d="M${cx - r + 12} ${cy - 12} A${r - 10} ${r - 10} 0 0 1 ${cx + 16} ${cy - r + 10}" stroke="#fff" stroke-width="9" fill="none" opacity=".22" stroke-linecap="round"/></g>`;
+  // knobs
+  for (const k of KNOBS) {
+    let notch = '';
+    for (let i = 0; i < 16; i++) notch += `<rect x="-1.3" y="${-k.r - 1.6}" width="2.6" height="4" fill="${k.dark}" transform="rotate(${i * 22.5})"/>`;
+    s += `<g id="g-knob-${k.id}" data-kind="knob" data-id="${k.id}" class="knob" transform="translate(${k.x},${KIT.knobY})">
+      <circle r="${k.r + 9}" fill="transparent"/>
+      <circle r="${k.r + 4.5}" fill="none" stroke="#00000030" stroke-width="3"/>
+      <circle id="arc-${k.id}" r="${k.r + 4.5}" fill="none" stroke="${k.ring}" stroke-width="3" stroke-linecap="round" transform="rotate(-90)" stroke-dasharray="0 999"/>
+      <g id="kr-${k.id}">${notch}<circle r="${k.r}" fill="url(#gk-${k.id})" stroke="${k.dark}" stroke-width="1"/><circle r="${k.r * 0.45}" fill="${k.light}" opacity=".3"/><rect x="-1.6" y="${-k.r + 2}" width="3.2" height="${k.r * 0.62}" rx="1.6" fill="#fff" opacity=".92"/></g>
+    </g>`;
+  }
+  $('gKit').innerHTML = s;
+}
+
+function drawGear() {
+  let p = '', e = '';
+  e += `<g id="g-acc-tube" data-kind="acc" data-id="tube" class="hose-end">
+    <rect x="-6" y="-84" width="12" height="74" rx="5" fill="rgba(220,240,255,.35)" stroke="#8fb9d6" stroke-width="1.3"/>
+    <rect id="tubefill" x="-4" y="-80" width="8" height="68" rx="3.5" fill="#5fb0e8" opacity="0"/>
+    <line x1="-3" y1="-80" x2="-3" y2="-16" stroke="#fff" stroke-width="1.5" opacity=".6"/>
+    <rect x="-10" y="-13" width="20" height="13" rx="2" fill="url(#gBronzeV)" stroke="#4a2f0c" stroke-width=".9"/>
+    <text x="0" y="-92" font-size="9" font-weight="800" text-anchor="middle" fill="#3b4a55" class="acc-lbl">SHORT TUBE</text>
+    <rect x="-16" y="-90" width="32" height="92" fill="transparent"/>
+  </g>`;
+  e += `<g id="g-acc-tee" data-kind="acc" data-id="tee" class="hose-end">
+    <rect x="-10" y="-36" width="20" height="36" rx="2" fill="url(#gBronzeV)" stroke="#4a2f0c" stroke-width=".9"/>
+    <rect x="10" y="-24" width="16" height="11" fill="url(#gBronze)" stroke="#4a2f0c" stroke-width=".8"/>
+    <line x1="-10" y1="-8" x2="10" y2="-8" stroke="#5e3d12" stroke-width=".8"/>
+    <text x="0" y="-44" font-size="9" font-weight="800" text-anchor="middle" fill="#3b4a55" class="acc-lbl">COMP. TEE</text>
+    <rect x="-16" y="-40" width="28" height="42" fill="transparent"/>
+    <g id="g-tee-knob" data-kind="teeknob" data-id="tee" class="knob" transform="translate(32,-18.5)"><circle r="13" fill="transparent"/><g id="teekr"><circle r="7.5" fill="#e07a1f" stroke="#6e3304"/><rect x="-1.2" y="-6.5" width="2.4" height="5" fill="#fff"/></g></g>
+  </g>`;
+  for (const h of HOSES) {
+    p += `<g id="hp-${h.id}"><path class="o" fill="none" stroke="${h.dark}" stroke-width="12.5" stroke-linecap="round"/><path class="m" fill="none" stroke="${h.color}" stroke-width="9" stroke-linecap="round"/><path class="hi" fill="none" stroke="#fff" stroke-width="2.4" opacity=".28" stroke-linecap="round" transform="translate(-2,-1)"/></g>`;
+    e += `<g id="g-hose-${h.id}" data-kind="hose" data-id="${h.id}" class="hose-end">
+      <rect x="-8" y="-38" width="16" height="8" rx="2" fill="${h.color}" stroke="${h.dark}" stroke-width=".8"/>
+      <rect x="-7" y="-31" width="14" height="15" rx="2" fill="url(#gSteelV)" stroke="#444" stroke-width=".7"/>
+      <rect x="-12" y="-17" width="24" height="17" rx="2" fill="url(#gBronzeV)" stroke="#4a2f0c" stroke-width=".9"/>
+      <line x1="-4" y1="-16" x2="-4" y2="-1" stroke="#5e3d12" stroke-width=".8"/><line x1="4" y1="-16" x2="4" y2="-1" stroke="#5e3d12" stroke-width=".8"/>
+      <circle cx="0" cy="-16" r="25" fill="transparent"/>
+    </g>`;
+  }
+  $('gHoses').innerHTML = p; $('gEnds').innerHTML = e;
+}
+
+// =====================================================================
+// GEOMETRY QUERIES
+// =====================================================================
+const tcDef = id => D.tc.find(t => t.id === id);
+const tcTip = id => { const t = tcDef(id); return { x: t.x, y: D.y - 58 }; };
+const hoseOn = tcid => { for (const h of HOSES) if (st.hose[h.id].att === tcid) return h; return null; };
+const hdef = id => HOSES.find(h => h.id === id);
+const ACC_NAMES = { tube: 'Short tube', tee: 'Compensating tee' };
+const itemObj = (kind, id) => kind === 'hose' ? st.hose[id] : st.acc[id];
+const itemName = (kind, id) => kind === 'hose' ? hdef(id).name.split(' (')[0] : ACC_NAMES[id];
+function snapPt(kind, tc) { const tp = tcTip(tc); return (kind === 'hose' && st.acc.tee.att === tc) ? { x: tp.x, y: tp.y - 36 } : tp; }
+function canSnap(kind, tc) {
+  const h = hoseOn(tc), tu = st.acc.tube.att === tc, te = st.acc.tee.att === tc;
+  return kind === 'hose' ? !h && !tu : !h && !tu && !te;
+}
+function itemPos(kind, id) { const o = itemObj(kind, id); return o.att ? snapPt(kind, o.att) : o; }
+const gearOn = tc => !!hoseOn(tc) || st.acc.tube.att === tc || st.acc.tee.att === tc;
+
+// =====================================================================
+// PHYSICS  (lumped pressure network, psi)
+// =====================================================================
+const gCtl = t => 1.8 * t * t;                          // high / low / bypass control (t = turns)
+const gBleed = t => 12 * Math.min(1, t / 1.5) ** 2;     // bleed needle valves
+function buildElements() {
+  const E = [], k = st.kit, p = params;
+  for (const v of D.sv) {
+    const o = st.sv[v.id];
+    if (o.s > 0.002) E.push({ t: 'g', a: v.a, b: v.b, g: 400 * o.s * o.s, id: v.id });
+    const lk = (p[v.id] || {}).leak;
+    if (lk && o.s < 0.98) E.push({ t: 'g', a: v.a, b: v.b, g: lk * (1 - o.s), id: v.id + 'leak' });
+  }
+  for (const c of D.checks) { const q = p[c.id]; E.push({ t: 'chk', a: c.a, b: c.b, g: 2000, k: q.k, lf: q.lf || 0, lr: q.lr || 0, id: c.id }); }
+  if (D.rv) E.push({ t: 'rv', z: 'Z', s: 'A', open: p.rv.k, g: 60, id: 'rv' });
+  if (D.ai && st.aiOpen) E.push({ t: 'g', a: 'B', b: 'atm', g: 300, id: 'ai' });
+  for (const t of D.tc) {
+    const s = st.tc[t.id].s; if (s < 0.002) continue;
+    const h = hoseOn(t.id), tube = st.acc.tube.att === t.id, tee = st.acc.tee.att === t.id;
+    if (tube) { E.push({ t: 'g', a: t.node, b: 'atm', g: 60 * s, id: 'tube' }); continue; }
+    if (tee && st.acc.tee.t > 0) E.push({ t: 'g', a: t.node, b: 'atm', g: 20 * st.acc.tee.t ** 2 * s, id: 'tee' });
+    if (h) E.push({ t: 'g', a: t.node, b: h.node, g: 150 * s, id: 'att' + h.id });
+    else E.push({ t: 'g', a: t.node, b: 'atm', g: 80 * s, id: 'spray_' + t.id });
+  }
+  for (const h of HOSES) if (!st.hose[h.id].att) E.push({ t: 'g', a: h.node, b: 'atm', g: 200, id: 'vent' + h.id });
+  if (k.HB > 0) E.push({ t: 'g', a: 'H', b: 'atm', g: gBleed(k.HB), id: 'HB' });
+  if (k.LB > 0) E.push({ t: 'g', a: 'L', b: 'atm', g: gBleed(k.LB), id: 'LB' });
+  if (k.HC > 0) E.push({ t: 'g', a: 'H', b: 'M', g: gCtl(k.HC), id: 'HC' });
+  if (k.LC > 0) E.push({ t: 'g', a: 'L', b: 'M', g: gCtl(k.LC), id: 'LC' });
+  if (k.BC > 0) E.push({ t: 'g', a: 'M', b: 'Bh', g: gCtl(k.BC), id: 'BC' });
+  return E;
+}
+function substep(E, dt) {
+  const P = st.P, F = st.F;
+  for (const e of E) {
+    if (e.t === 'g') {
+      const ia = IC[e.a], ib = IC[e.b], den = ia + ib; if (!den) continue;
+      const d = P[e.a] - P[e.b]; let V = e.g * d * dt; const lim = d / den;
+      if (Math.abs(V) > Math.abs(lim)) V = lim;
+      P[e.a] -= V * ia; P[e.b] += V * ib; F[e.id] = (F[e.id] || 0) + V;
+    } else if (e.t === 'chk') {
+      const ia = IC[e.a], ib = IC[e.b], den = ia + ib, d = P[e.a] - P[e.b];
+      if (d > e.k) { let V = e.g * (d - e.k) * dt; const lim = (d - e.k) / den; if (V > lim) V = lim; P[e.a] -= V * ia; P[e.b] += V * ib; F[e.id] = (F[e.id] || 0) + V; }
+      if (e.lf || e.lr) {
+        const d2 = P[e.a] - P[e.b]; let V = d2 > 0 ? e.lf * d2 * dt : e.lr * d2 * dt; const lim = d2 / den;
+        if (Math.abs(V) > Math.abs(lim)) V = lim;
+        if (V) { P[e.a] -= V * ia; P[e.b] += V * ib; F[e.id + 'leak'] = (F[e.id + 'leak'] || 0) + V; }
+      }
+    } else if (e.t === 'rv') {
+      const iz = IC[e.z], del = P[e.s] - P[e.z];
+      if (del < e.open && P[e.z] > 0) {
+        let V = e.g * (e.open - del) * dt;
+        V = Math.min(V, (e.open - del) / iz, P[e.z] / iz);
+        P[e.z] -= V * iz; F.rv = (F.rv || 0) + V;
+      }
+    }
+  }
+}
+const LEVEL_ERR = 0.4; // gauge sitting about a foot below the reference point
+function physics(dt) {
+  for (const v of D.sv) { const o = st.sv[v.id]; o.s += clamp(o.t - o.s, -dt * 2.6, dt * 2.6); }
+  for (const t of D.tc) {
+    const o = st.tc[t.id]; o.s += clamp(o.t - o.s, -dt * 7, dt * 7);
+    if (o.t === 1 && !gearOn(t.id)) { o.openT += dt; if (o.openT > 0.3) o.flushed = true; } else o.openT = 0;
+  }
+  const tube = st.acc.tube;
+  if (tube.att && st.tc[tube.att].s > 0.9) { tube.fillT += dt; if (tube.fillT > 0.4 && !tube.filled) { tube.filled = true; log('Short tube filled with water'); } }
+  st.F = {};
+  const E = buildElements(), N = 24, h = dt / N;
+  for (let i = 0; i < N; i++) substep(E, h);
+  st.Fa = {}; for (const k in st.F) st.Fa[k] = st.F[k] / dt;
+  if (D.ai) {
+    const ai = params.ai;
+    if (!st.aiOpen && ai.works && st.P.B < ai.k) {
+      st.aiOpen = true;
+      st.events.push({ type: 'ai', t: st.t, val: st.P.B, gauge: st.needle, rate: rateOf(1.5), hb: st.kit.HB });
+      log('Air inlet popped open');
+      toast(st.finger ? 'You feel the air inlet poppet drop' : 'Air inlet opened');
+      if (!st.canopyOff) flag('canopy', 'The air inlet canopy was still on during the air inlet test. Remove it first.');
+      if (!st.finger) flag('finger', 'No finger on top of the air inlet. That is how you feel the exact moment it opens.');
+      if (st.kit.HB > 0.3) flag('hbQuarter', `High bleed was ${fmtTurn(st.kit.HB)} open when the air inlet opened. The sheet says ¼ turn max.`);
+    } else if (st.aiOpen && st.P.B > ai.k + 0.8) { st.aiOpen = false; log('Air inlet closed'); }
+  }
+  if (D.rv) {
+    const q = st.Fa.rv || 0;
+    if (q > 0.03 && !st.rvDis) {
+      st.rvDis = true;
+      const lc = st.kit.LC > 0.01 && st.kit.HC > 0.01;
+      st.events.push({ type: 'rv', t: st.t, val: st.P.A - st.P.Z, gauge: st.needle, rate: rateOf(1.5), lc, lcT: st.kit.LC });
+      log('Relief valve started discharging'); toast(st.hand ? 'Water drips onto your hand: relief valve open' : 'Relief valve discharging');
+      if (lc && st.kit.LC > 0.3) flag('lcQuarter', `Low control was ${fmtTurn(st.kit.LC)} open when the relief opened. The sheet says no more than ¼ turn.`);
+      if (lc && !st.hand) flag('hand', 'No hand under the relief vent during the relief valve test.');
+    } else if (q < 0.004 && st.rvDis) { st.rvDis = false; log('Relief valve stopped discharging'); }
+  }
+  for (const hd of HOSES) {
+    const ho = st.hose[hd.id];
+    let flowing = false;
+    if (ho.att) flowing = st.tc[ho.att].s > 0.9 && (Math.abs(st.Fa['att' + hd.id] || 0) > 0.8 || (hd.id === 'B' && st.kit.BC > 0.3));
+    else flowing = (st.Fa['vent' + hd.id] || 0) > 0.8;
+    if (flowing) { ho.purgeT += dt; if (ho.purgeT > 0.8 && !ho.purged) { ho.purged = true; log(`${hd.name.split(' (')[0]} bled clear of air`); } }
+  }
+  const air = HOSES.some(hd => hd.id !== 'B' && st.hose[hd.id].att && st.tc[st.hose[hd.id].att].s > 0.5 && !st.hose[hd.id].purged);
+  st.noise += (Math.random() - 0.5) * dt * 30; st.noise *= Math.exp(-dt * 3);
+  const target = st.P.H - st.P.L + (air ? st.noise * 0.6 : 0) + levelErr();
+  st.needle += (target - st.needle) * (1 - Math.exp(-dt / 0.13));
+  st.hist.push([st.t, st.P.H - st.P.L]); while (st.hist.length && st.t - st.hist[0][0] > 3) st.hist.shift();
+  st.t += dt;
+}
+function levelErr() { return (!st.leveled && st.hose.H.att && !st.hose.L.att && st.P.H > 0.05) ? LEVEL_ERR : 0; }
+function rateOf(win) {
+  if (!st.hist.length) return 0;
+  const now = st.hist[st.hist.length - 1];
+  let old = st.hist[0]; for (const hh of st.hist) if (now[0] - hh[0] <= win) { old = hh; break; }
+  const dtt = now[0] - old[0]; return dtt > 0.2 ? (old[1] - now[1]) / dtt : 0;
+}
+function fmtTurn(t) {
+  if (t < 0.01) return 'closed';
+  const fr = { 1: '⅛', 2: '¼', 3: '⅜', 4: '½', 5: '⅝', 6: '¾', 7: '⅞' };
+  const e = Math.round(t * 8), w = Math.floor(e / 8), f = e % 8;
+  const txt = (w ? w + (f ? ' ' : '') : '') + (f ? fr[f] : '') || '⅛';
+  return `${txt} turn${t > 1.06 ? 's' : ''}`;
+}
+
+// =====================================================================
+// RENDER
+// =====================================================================
+function render() {
+  const { cx, cy } = KIT;
+  $('needle').setAttribute('transform', `rotate(${gaugeAngle(st.needle).toFixed(2)} ${cx} ${cy})`);
+  $('lcdg').style.display = mode === 'guided' ? '' : 'none';
+  $('lcd').textContent = st.needle > 15.2 ? '15+' : Math.max(0, st.needle).toFixed(1);
+  for (const v of D.sv) {
+    const o = st.sv[v.id], th = (1 - o.s) * Math.PI / 2, c = Math.cos(th);
+    $('lev-' + v.id).setAttribute('transform', `scale(${(0.1 + 0.9 * c).toFixed(3)},1)`);
+    $('levend-' + v.id).setAttribute('opacity', (1 - c).toFixed(2));
+    const t = $('svst-' + v.id); const open = o.t === 1;
+    t.textContent = open ? 'OPEN' : 'CLOSED'; t.setAttribute('fill', open ? '#1f7a3e' : '#b3261e');
+  }
+  for (const t of D.tc) $('lev-' + t.id).setAttribute('transform', `rotate(${(-90 * st.tc[t.id].s).toFixed(1)})`);
+  for (const k of KNOBS) {
+    const v = st.kit[k.id]; $('kr-' + k.id).setAttribute('transform', `rotate(${(v * 360).toFixed(1)})`);
+    const C = 2 * Math.PI * (k.r + 4.5); $('arc-' + k.id).setAttribute('stroke-dasharray', `${(Math.min(1, v / 3) * C).toFixed(1)} 999`);
+  }
+  for (const hd of HOSES) {
+    const { x: ex, y: ey } = itemPos('hose', hd.id);
+    const px = hd.port, py = KIT.portY + 8, top = ey - 36, i = HOSES.indexOf(hd);
+    const mx = 468 + i * 20, my = 690 + (i === 1 ? 8 : 0);
+    let d = `M${px},${py} C${px},${py + 62} ${mx - 70},${my} ${mx},${my}`;
+    if (ey > 585) d += ` C${mx + 40},${my} ${ex},${top - 40} ${ex},${top}`;
+    else { const lift = clamp(130 - (ey - 200) * 0.3, 60, 130); d += ` C${mx + 70},${my} ${ex},${top - lift} ${ex},${top}`; }
+    for (const pth of $('hp-' + hd.id).children) pth.setAttribute('d', d);
+    $('g-hose-' + hd.id).setAttribute('transform', `translate(${ex.toFixed(1)},${ey.toFixed(1)})`);
+  }
+  for (const id of ['tube', 'tee']) {
+    const p = itemPos('acc', id);
+    const g = $('g-acc-' + id); g.setAttribute('transform', `translate(${p.x.toFixed(1)},${p.y.toFixed(1)})`);
+    g.querySelector('.acc-lbl').style.display = st.acc[id].att ? 'none' : '';
+  }
+  $('tubefill').setAttribute('opacity', st.acc.tube.filled ? 0.7 : 0);
+  $('teekr').setAttribute('transform', `rotate(${(st.acc.tee.t * 360).toFixed(1)})`);
+  for (const t of D.tc) $('snap-' + t.id).setAttribute('opacity', drag && drag.snap === t.id ? 1 : 0);
+  if (D.ai) {
+    $('pvb-poppet').setAttribute('transform', st.aiOpen ? 'translate(0,5)' : '');
+    $('poppet-cap').setAttribute('transform', st.aiOpen ? 'translate(0,5)' : '');
+    $('pvb-vent').setAttribute('fill', st.aiOpen ? '#3a3a3a' : '#151515');
+    $('ai-hiss').setAttribute('opacity', (st.aiOpen ? 0.5 + 0.5 * Math.sin(st.t * 12) : 0).toFixed(2));
+    $('g-canopy').setAttribute('transform', st.canopyOff ? `translate(530,${800 - D.y})` : '');
+    $('g-poppet').style.display = st.canopyOff ? '' : 'none';
+    $('g-finger').setAttribute('opacity', st.finger && st.canopyOff ? 1 : 0);
+    $('g-finger').setAttribute('transform', st.aiOpen ? 'translate(0,5)' : '');
+  }
+  if (D.rv) $('rv-hand').setAttribute('opacity', st.hand ? 1 : 0);
+  if (cutaway) renderCut();
+}
+function pcol(p) {
+  const t = clamp(p / 90, 0, 1), a = [196, 226, 250], b = [10, 66, 150];
+  return `rgb(${a.map((v, i) => Math.round(v + (b[i] - v) * t)).join(',')})`;
+}
+function renderCut() {
+  const P = st.P;
+  const set = (id, node) => { const e = $('cut-' + id); if (e) e.setAttribute('fill', pcol(P[node])); };
+  const lab = (id, txt) => { const e = $('cutl-' + id); if (e) e.textContent = txt; };
+  if (D.key === 'pvb') {
+    set('A1', 'A'); set('A2', 'A'); set('B1', 'B'); set('B2', 'B');
+    lab('A', `INLET ${P.A.toFixed(1)}`); lab('B', `BODY ${P.B.toFixed(1)}`);
+    lab('ai', st.aiOpen ? 'AIR INLET OPEN' : 'air inlet sealed');
+    lab('S', `SUPPLY ${P.S.toFixed(0)} psi`); lab('O', `BLDG ${P.O.toFixed(0)}`);
+    const o = Math.min(9, Math.sqrt(Math.max(0, st.Fa.ck || 0)) * 0.7);
+    $('cutdisc-ck').setAttribute('transform', `translate(0,${-o})`);
+  } else {
+    set('A', 'A'); set('Z', 'Z'); set('D', 'D');
+    lab('A', `INLET ${P.A.toFixed(1)}`); lab('Z', `${D.rv ? 'ZONE' : 'BETWEEN CHECKS'} ${P.Z.toFixed(1)}`); lab('D', `OUT ${P.D.toFixed(1)}`);
+    lab('S', `SUPPLY ${P.S.toFixed(0)} psi`); lab('O', `BLDG ${P.O.toFixed(0)}`);
+    for (const c of D.checks) { const o = Math.min(10, Math.sqrt(Math.max(0, st.Fa[c.id] || 0)) * 0.7); $('cutdisc-' + c.id).setAttribute('transform', `translate(${o},0)`); }
+    if (D.rv) { set('R', 'Z'); lab('rv', st.rvDis ? 'RELIEF OPEN' : `relief closed (${(P.A - P.Z).toFixed(1)} psid)`); $('cut-rvp').setAttribute('transform', st.rvDis ? 'translate(0,5)' : ''); }
+  }
+}
+
+// ---------------------------------------------------------------------
+// WATER PARTICLES
+// ---------------------------------------------------------------------
+const parts = []; const pool = []; const emitAcc = {};
+function emit(key, rate, dt, x, y, vx0, vxs, vy0, vys, land) {
+  emitAcc[key] = (emitAcc[key] || 0) + rate * dt;
+  while (emitAcc[key] >= 1) {
+    emitAcc[key] -= 1;
+    if (parts.length > 380) return;
+    let el = pool.pop(); if (!el) { el = document.createElementNS(NS, 'circle'); el.setAttribute('fill', '#5fb0e8'); }
+    el.setAttribute('r', (1.6 + Math.random() * 1.6).toFixed(1)); el.setAttribute('opacity', '.85');
+    $('gWater').appendChild(el);
+    parts.push({ el, x: x + (Math.random() - .5) * 4, y, vx: vx0 + (Math.random() - .5) * vxs, vy: vy0 + (Math.random() - .5) * vys, land: land || GROUND + 6 + Math.random() * 70 });
+  }
+}
+function water(dt) {
+  const y = D.y;
+  for (const t of D.tc) {
+    const q = st.Fa['spray_' + t.id] || 0;
+    if (q > 2) {
+      const P = st.P[t.node], yy = st.acc.tee.att === t.id ? y - 94 : y - 58;
+      emit('tc' + t.id, Math.min(140, 30 + q * 0.05), dt, t.x, yy, 0, 70, -(140 + Math.sqrt(P) * 26), 60);
+      if (!st.sprayMsg[t.id]) { st.sprayMsg[t.id] = 1; log(`Water spraying from ${t.id.toUpperCase()}`); }
+    } else st.sprayMsg[t.id] = 0;
+  }
+  const tq = st.Fa.tube || 0;
+  if (tq > 0.3) { const p = itemPos('acc', 'tube'); emit('tube', Math.min(90, 8 + tq * 0.4), dt, p.x, p.y - 84, 25, 30, -20, 20); }
+  const eq = st.Fa.tee || 0;
+  if (eq > 0.3) { const p = itemPos('acc', 'tee'); emit('tee', Math.min(90, 8 + eq * 0.4), dt, p.x + 26, p.y - 18, 50, 30, 0, 20); }
+  for (const hd of HOSES) {
+    const q = st.Fa['vent' + hd.id] || 0;
+    if (q > 3) { const ho = st.hose[hd.id]; emit('hv' + hd.id, Math.min(120, 20 + q * 0.05), dt, ho.x, ho.y, 0, 90, -60, 80); }
+  }
+  const hb = st.Fa.HB || 0, lb = st.Fa.LB || 0;
+  if (hb > 0.3) emit('hb', Math.min(110, 12 + hb * 1.2), dt, 214, KIT.portY + 9, 0, 14, 40, 30);
+  if (lb > 0.3) emit('lb', Math.min(110, 12 + lb * 1.2), dt, 426, KIT.portY + 9, 0, 14, 40, 30);
+  if (D.rv && (st.Fa.rv || 0) > 0.015) emit('rv', Math.min(150, 18 + st.Fa.rv * 60), dt, 600, y + 154, 0, 18, 60, 50, st.hand ? y + 176 : 0);
+  if (D.ai && st.aiOpen && (st.Fa.ai || 0) > 2) { const q = st.Fa.ai; emit('ail', Math.min(80, 10 + q * 0.04), dt, 480, y - 120, -40, 40, -10, 30); emit('air', Math.min(80, 10 + q * 0.04), dt, 620, y - 120, 40, 40, -10, 30); }
+  for (let i = parts.length - 1; i >= 0; i--) {
+    const p = parts[i]; p.vy += 900 * dt; p.x += p.vx * dt; p.y += p.vy * dt;
+    if (p.y > p.land || p.y > 715) { p.el.remove(); pool.push(p.el); parts.splice(i, 1); continue; }
+    p.el.setAttribute('cx', p.x.toFixed(1)); p.el.setAttribute('cy', p.y.toFixed(1));
+  }
+}
+
+// =====================================================================
+// INTERACTION
+// =====================================================================
+const svg = $('scene'); let drag = null; let lastTap = {};
+function svgPt(e) { const pt = svg.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY; return pt.matrixTransform(svg.getScreenCTM().inverse()); }
+function showTip(e, txt) { const t = $('tip'), r = $('stage').getBoundingClientRect(); t.style.display = 'block'; t.textContent = txt; t.style.left = (e.clientX - r.left + 14) + 'px'; t.style.top = (e.clientY - r.top - 30) + 'px'; }
+function hideTip() { $('tip').style.display = 'none'; }
+const knobName = id => id === 'tee' ? 'Compensating tee valve' : KNOBS.find(k => k.id === id).name;
+const knobGet = id => id === 'tee' ? st.acc.tee.t : st.kit[id];
+function knobSet(id, v) {
+  if (id === 'tee') { st.acc.tee.t = clamp(v, 0, 1.5); if (st.acc.tee.t < 0.01) st.acc.tee.t = 0; }
+  else setKit(id, v);
+}
+function setKit(id, v) {
+  v = clamp(v, 0, 3); if (v < 0.01) v = 0;
+  const old = st.kit[id]; st.kit[id] = v;
+  if (id === 'LB' && old > 0 && v === 0 && st.kit.HB > 0.01 && st.hose.H.att && st.hose.L.att)
+    flag('bleedOrder', 'Closed the Low Bleed while the High Bleed was still open. Close bleeds High first, Low last.');
+}
+
+svg.addEventListener('pointerdown', e => {
+  const el = e.target.closest('[data-kind]'); if (!el) return;
+  e.preventDefault();
+  const p = svgPt(e), kind = el.dataset.kind, id = el.dataset.id;
+  drag = { kind, id, sx: p.x, sy: p.y, moved: false };
+  if (kind === 'knob' || kind === 'teeknob') drag.v0 = knobGet(kind === 'teeknob' ? 'tee' : id);
+  if (kind === 'hose' || kind === 'acc') { const ex = itemPos(kind, id); drag.ox = ex.x - p.x; drag.oy = ex.y - p.y; }
+  try { svg.setPointerCapture(e.pointerId); } catch (_) {}
+});
+svg.addEventListener('pointermove', e => {
+  if (!drag) return;
+  const p = svgPt(e);
+  if (Math.hypot(p.x - drag.sx, p.y - drag.sy) > 4) drag.moved = true;
+  if ((drag.kind === 'hose' || drag.kind === 'acc') && drag.moved) {
+    const o = itemObj(drag.kind, drag.id);
+    if (o.att) {
+      if (drag.kind === 'acc' && drag.id === 'tee' && hoseOn(o.att)) { toast('Take the hose off the tee first'); drag = null; return; }
+      detachItem(drag.kind, drag.id);
+    }
+    o.drag = true; o.x = clamp(p.x + drag.ox, 20, 1180); o.y = clamp(p.y + drag.oy, 60, 708);
+    drag.snap = null; let best = 40;
+    for (const t of D.tc) { if (!canSnap(drag.kind, t.id)) continue; const tp = snapPt(drag.kind, t.id); const dd = Math.hypot(tp.x - o.x, tp.y - o.y); if (dd < best) { best = dd; drag.snap = t.id; } }
+  } else if (drag.kind === 'knob' || drag.kind === 'teeknob') {
+    const id = drag.kind === 'teeknob' ? 'tee' : drag.id;
+    const sens = e.shiftKey ? 440 : 110;
+    knobSet(id, drag.v0 + (drag.sy - p.y) / sens);
+    showTip(e, `${knobName(id)}: ${fmtTurn(knobGet(id))}${knobGet(id) >= 0.01 ? ' open' : ''}`);
+  }
+});
+function endDrag() {
+  if (!drag) return;
+  const d = drag; drag = null; hideTip();
+  if (d.kind === 'hose' || d.kind === 'acc') {
+    const o = itemObj(d.kind, d.id); o.drag = false;
+    if (d.moved) { if (d.snap) attachItem(d.kind, d.id, d.snap); else o.gy = o.y < 600 ? 628 + Math.random() * 55 : o.y; }
+  } else if (!d.moved) {
+    if (d.kind === 'sv') toggleSV(d.id);
+    else if (d.kind === 'tc') toggleTC(d.id);
+    else if (d.kind === 'rvport') { st.hand = !st.hand; log(st.hand ? 'Hand placed under the relief vent' : 'Hand moved away from the relief vent'); }
+    else if (d.kind === 'canopy') { st.canopyOff = !st.canopyOff; if (!st.canopyOff) st.finger = false; log(st.canopyOff ? 'Air inlet canopy removed' : 'Air inlet canopy replaced'); }
+    else if (d.kind === 'poppet') { st.finger = !st.finger; log(st.finger ? 'Finger placed on top of the air inlet' : 'Finger removed from the air inlet'); }
+    else if (d.kind === 'knob' || d.kind === 'teeknob') {
+      const id = d.kind === 'teeknob' ? 'tee' : d.id, now = performance.now();
+      if (lastTap[id] && now - lastTap[id] < 380) { knobSet(id, knobGet(id) > 0.05 ? 0 : 1); lastTap[id] = 0; }
+      else lastTap[id] = now;
+    }
+  }
+}
+svg.addEventListener('pointerup', endDrag);
+svg.addEventListener('pointercancel', endDrag);
+svg.addEventListener('wheel', e => {
+  const el = e.target.closest('[data-kind="knob"],[data-kind="teeknob"]'); if (!el) return;
+  e.preventDefault();
+  const id = el.dataset.kind === 'teeknob' ? 'tee' : el.dataset.id;
+  knobSet(id, knobGet(id) - e.deltaY * (e.shiftKey ? 0.0006 : 0.0025));
+  showTip(e, `${knobName(id)}: ${fmtTurn(knobGet(id))}${knobGet(id) >= 0.01 ? ' open' : ''}`);
+  clearTimeout(window._tipT); window._tipT = setTimeout(hideTip, 900);
+}, { passive: false });
+
+function toggleSV(id) {
+  const o = st.sv[id]; o.t = o.t ? 0 : 1;
+  const name = id === 'sv1' ? 'Inlet (#1) shut-off' : 'Outlet (#2) shut-off';
+  log(`${name} ${o.t ? 'opened' : 'closed'}`);
+  if (!o.t && id === 'sv1' && st.sv.sv2.t === 1 && D.key !== 'rpz') flag('order', 'Closed the inlet shut-off while the outlet was still open. Close the outlet first, then the inlet.');
+  if (!o.t && id === 'sv1' && D.key === 'rpz') flag('rpsv1', 'The inlet shut-off was closed. The RP field test keeps the inlet open the whole time.');
+}
+function toggleTC(id) {
+  const o = st.tc[id]; o.t = o.t ? 0 : 1;
+  if (!gearOn(id)) {
+    if (o.t && !st.flushOpen.includes(id)) st.flushOpen.push(id);
+    if (!o.t && o.flushed && !st.flushClose.includes(id)) st.flushClose.push(id);
+  }
+  const g = hoseOn(id) ? hoseOn(id).name.split(' (')[0].toLowerCase() : st.acc.tube.att === id ? 'short tube' : st.acc.tee.att === id ? 'tee' : '';
+  log(`${id.toUpperCase()} ${o.t ? 'opened' : 'closed'}${g ? ` (${g} attached)` : ''}`);
+}
+function attachItem(kind, id, tc) {
+  const o = itemObj(kind, id); o.att = tc;
+  if (kind === 'acc' && id === 'tube') { o.filled = false; o.fillT = 0; }
+  log(`${itemName(kind, id)} connected to ${tc.toUpperCase()}`);
+  if (st.tc[tc].t === 1) flag('attOpen' + tc, `Connected to ${tc.toUpperCase()} while it was open. Close the test cock before connecting.`);
+  if (!st.tc[tc].flushed) flag('flush' + tc, `${tc.toUpperCase()} wasn't flushed before equipment went on.`);
+  if (kind === 'hose') {
+    if (!st.hosesEverOn && Object.values(st.kit).some(v => v > 0.01)) flag('kitInspect', 'Hoses went on before the kit’s needle valves were all closed (Inspect Test Kit step).');
+    st.hosesEverOn = true;
+    if (id === 'B' && D.key === 'rpz' && !o.purged) flag('bypassAir', 'The bypass hose went on TC4 without being bled first (open the bypass control with the hose off, then close it).');
+  }
+}
+function detachItem(kind, id) {
+  const o = itemObj(kind, id); const tc = o.att; if (!tc) return;
+  const tp = snapPt(kind, tc); o.x = tp.x; o.y = tp.y; o.att = null;
+  if (kind === 'hose') { o.purged = false; o.purgeT = 0; }
+  if (kind === 'acc' && id === 'tube') { o.filled = false; o.fillT = 0; }
+  log(`${itemName(kind, id)} removed from ${tc.toUpperCase()}`);
+  if (st.tc[tc].t === 1) flag('detOpen' + tc, `Removed equipment from ${tc.toUpperCase()} while the test cock was open (you got wet).`);
+}
+const attach = (h, tc) => attachItem('hose', h, tc);
+const detach = h => detachItem('hose', h);
+
+// =====================================================================
+// LOG / TOAST / FLAGS
+// =====================================================================
+function fmtT(t) { const m = Math.floor(t / 60), s = Math.floor(t % 60); return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`; }
+function log(msg, warn) {
+  const el = $('log'); const div = document.createElement('div'); if (warn) div.className = 'w';
+  div.innerHTML = `<span>${fmtT(st.t)}</span>${msg}`; el.prepend(div);
+}
+function flag(key, msg) { if (st.flags[key]) return; st.flags[key] = msg; if (mode === 'guided') log('⚠ ' + msg, true); }
+let toastT;
+function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2200); }
+
+// =====================================================================
+// GUIDED PROCEDURES (match the course field-test sheets)
+// =====================================================================
+const G = {
+  tcO: id => st.tc[id] && st.tc[id].t === 1 && st.tc[id].s > 0.95,
+  tcC: id => st.tc[id] && st.tc[id].t === 0 && st.tc[id].s < 0.05,
+  svO: id => st.sv[id].t === 1 && st.sv[id].s > 0.95,
+  svC: id => st.sv[id].t === 0 && st.sv[id].s < 0.05,
+  att: h => st.hose[h].att, acc: id => st.acc[id].att, k: id => st.kit[id], pur: h => st.hose[h].purged,
+  rep: id => { const e = $(id); return !!e && e.value !== ''; },
+  rad: n => { const e = document.querySelector(`input[name="${n}"]:checked`); return e ? e.value : null; },
+  c: id => { const e = $(id); return !!e && e.checked; },
+  allTcClosed: () => D.tc.every(t => G.tcC(t.id)),
+  noGear: () => HOSES.every(h => !st.hose[h.id].att) && !st.acc.tube.att && !st.acc.tee.att,
+  flushed: ids => ids.every(id => st.tc[id].flushed),
+  kitClosed: () => Object.values(st.kit).every(v => v < 0.01),
+  kitOpen: () => Object.values(st.kit).every(v => v >= 0.5),
+  diff: () => st.P.H - st.P.L,
+};
+const bleedH = () => G.pur('H') && G.k('HB') < 0.01;
+const briefly = id => m => { if (G.k(id) > 0.05) m.o = 1; return m.o && G.k(id) < 0.01; };
+const T4 = ['tc1', 'tc2', 'tc3', 'tc4'];
+const KITIDS = KNOBS.map(k => 'g-knob-' + k.id);
+const step = (h, ok, hl, d) => ({ h, ok, hl: hl || [], d: d || '' });
+const tcStep = (verb, id) => step(`${verb} TC${id.slice(2)}`, verb.includes('lose') ? () => G.tcC(id) : () => G.tcO(id), ['g-tc-' + id]);
+
+const STEPS = {
+  rpz: [
+    { s: 'Preparation' },
+    step('Notify customer and inspect area', () => G.c('c_notify') && G.c('c_inspect'), ['c_notify', 'c_inspect'], 'Tick them in the report checklist.'),
+    step('Flush test cocks: open #4, #3, #2, #1', () => T4.every(G.tcO), ['g-tc-tc4', 'g-tc-tc3', 'g-tc-tc2', 'g-tc-tc1'], 'Open them in that order and let them run.'),
+    step('Close test cocks: #1, #2, #3, #4', () => G.flushed(T4) && G.allTcClosed(), ['g-tc-tc1', 'g-tc-tc2', 'g-tc-tc3', 'g-tc-tc4']),
+    step('Attach fittings (as required)', () => G.c('c_fit'), ['c_fit'], 'Tick it in the checklist.'),
+    step('Inspect test kit: close all needle valves', G.kitClosed, KITIDS, 'The kit comes out of the case with its needle valves open. Close all five (double-click a knob, or drag it down).'),
+    { s: 'Test #1: Check Valve #1' },
+    step('Attach High hose to TC2', () => G.att('H') === 'tc2', ['g-hose-H']),
+    step('Attach Low hose to TC3', () => G.att('L') === 'tc3', ['g-hose-L']),
+    step('Slowly open TC3, then open the Low Bleed', () => G.tcO('tc3') && G.k('LB') > 0.2, ['g-tc-tc3', 'g-knob-LB']),
+    step('Slowly open TC2, then open the High Bleed', () => G.tcO('tc2') && G.k('HB') > 0.2, ['g-tc-tc2', 'g-knob-HB']),
+    step('Close the Outlet shut-off valve', () => G.svC('sv2'), ['g-sv-sv2']),
+    step('Close bleeds: High first, Low last', () => G.k('HB') < 0.01 && G.k('LB') < 0.01, ['g-knob-HB', 'g-knob-LB']),
+    step('Observe CV #1', m => m.t > 4, ['gauge'], 'Watch the needle a few seconds. Holding steady means closed tight.'),
+    step('Record CV #1 as Closed Tight or Leaking', () => !!G.rad('r_cv1s'), ['r_cv1s0']),
+    { s: 'Test #2: Relief Valve' },
+    step('Open the High Control valve one (1) full turn', () => G.k('HC') >= 0.85, ['g-knob-HC'], 'Drag the red knob up until the tooltip reads 1 turn. Double-clicking also sets exactly 1 turn.'),
+    step('Place a hand under the relief vent', () => st.hand, ['g-rv'], 'Click the relief valve.'),
+    step('Slightly open the Low Control, no more than ¼ turn', () => st.events.some(e => e.type === 'rv' && e.lc), ['g-knob-LC', 'gauge'], 'Hold Shift while dragging for fine control. The needle should fall slowly.'),
+    step('When water drips, record the RV opening pressure', () => G.rep('r_rv'), ['r_rv'], 'Must be ≥ 2.0 psid.'),
+    step('Close the Low Control valve', () => G.k('LC') < 0.01, ['g-knob-LC']),
+    { s: 'Test #3: Backpressure' },
+    step('Open the Bypass Control to bleed air from the bypass hose, then close it', () => G.pur('B') && G.k('BC') < 0.01 && !G.att('B'), ['g-knob-BC', 'g-hose-B'], 'The yellow hose is still off the assembly, so water runs out its end.'),
+    step('Attach the Bypass hose to TC4', () => G.att('B') === 'tc4', ['g-hose-B']),
+    tcStep('Open', 'tc4'),
+    step('Reset gauge (Low Bleed)', briefly('LB'), ['g-knob-LB'], 'Open the Low Bleed briefly, then close it, to re-establish the differential across CV #1.'),
+    step('Slowly open the Bypass Control one (1) full turn', () => G.k('BC') >= 0.85, ['g-knob-BC']),
+    step('Observe the relief valve, record CV #2', m => m.t > 6 && !!G.rad('r_cv2bs'), ['g-rv', 'r_cv2bs0'], 'Not dripping: Closed Tight, go to Test #4. If the relief starts to drip, CV #2 is leaking.'),
+    { s: 'Test #4: Check Valve #1' },
+    step('Reset gauge (Low Bleed) to relieve disk compression', briefly('LB'), ['g-knob-LB']),
+    step('Record CV #1 differential pressure', () => G.rep('r_cv1'), ['r_cv1'], 'Must be ≥ 5.0 psid.'),
+    { s: 'Test #5: Outlet Shut-off Valve' },
+    tcStep('Close', 'tc2'),
+    step('Wait and check the gauge for leaks in the outlet shut-off', m => m.t > 8, ['gauge'], 'Needle holds: outlet shut-off is tight. Needle keeps falling: it is leaking.'),
+    step('Record Outlet shut-off as Closed Tight or Leaking', () => !!G.rad('r_sv2s'), ['r_sv2s0']),
+    { s: 'Test #6: Check Valve #2' },
+    step('Close the Bypass Control valve', () => G.k('BC') < 0.01, ['g-knob-BC']),
+    tcStep('Close', 'tc3'), tcStep('Close', 'tc4'),
+    step('Remove the Bypass hose from TC4', () => !G.att('B'), ['g-hose-B']),
+    step('Attach the Low hose to TC4', () => G.att('L') === 'tc4', ['g-hose-L']),
+    step('Attach the High hose to TC3', () => G.att('H') === 'tc3', ['g-hose-H']),
+    step('Slowly open TC4, then open the Low Bleed', () => G.tcO('tc4') && G.k('LB') > 0.2, ['g-tc-tc4', 'g-knob-LB']),
+    step('Slowly open TC3, then open the High Bleed', () => G.tcO('tc3') && G.k('HB') > 0.2, ['g-tc-tc3', 'g-knob-HB']),
+    step('Close High Bleed first, then slowly close Low Bleed', () => G.k('HB') < 0.01 && G.k('LB') < 0.01, ['g-knob-HB', 'g-knob-LB']),
+    step('Record CV #2 differential pressure', () => G.rep('r_cv2'), ['r_cv2'], 'Must be ≥ 1.0 psid.'),
+    { s: 'Final' },
+    tcStep('Close', 'tc3'), tcStep('Close', 'tc4'),
+    step('Slowly open the Outlet shut-off valve', () => G.svO('sv1') && G.svO('sv2'), ['g-sv-sv2']),
+    step('Remove all equipment', G.noGear, ['g-hose-H', 'g-hose-L']),
+    step('Open all needle valves on the test kit', G.kitOpen, KITIDS),
+    step('Verify the field test form, make the call, submit', () => st.submitted, ['btnSubmit']),
+  ],
+  dc: [
+    { s: 'Preparation' },
+    step('PPE, notify customer, inspect area', () => G.c('c_ppe') && G.c('c_notify') && G.c('c_inspect'), ['c_ppe', 'c_notify', 'c_inspect'], 'Tick them in the report checklist.'),
+    step('Flush test cocks: open #1, #2, #3, #4', () => T4.every(G.tcO), ['g-tc-tc1', 'g-tc-tc2', 'g-tc-tc3', 'g-tc-tc4'], 'Open them in that order and let them run.'),
+    step('Close test cocks: #4, #3, #2, #1', () => G.flushed(T4) && G.allTcClosed(), ['g-tc-tc4', 'g-tc-tc3', 'g-tc-tc2', 'g-tc-tc1']),
+    step('Attach fittings (as required)', () => G.c('c_fit'), ['c_fit']),
+    step('Inspect test kit: close all needle valves', G.kitClosed, KITIDS, 'The kit comes out of the case with its needle valves open. Close all five.'),
+    { s: 'Test #1: Check Valve #1' },
+    step('Attach the short tube to TC3', () => G.acc('tube') === 'tc3', ['g-acc-tube'], 'Drag the clear tube onto TC3.'),
+    step('Level the test gauge and Low hose end with the short tube discharge', () => st.leveled, ['btnLevel'], 'Use the gauge-height button at the top-left of the scene. A gauge left on the ground reads high.'),
+    step('Install the compensating tee and the High hose on TC2', () => G.acc('tee') === 'tc2' && G.att('H') === 'tc2', ['g-acc-tee', 'g-hose-H'], 'Drag the tee onto TC2 first, then the red hose onto the top of the tee.'),
+    step('Slowly open TC3 to fill the short tube, then close TC3', () => st.acc.tube.filled && G.tcC('tc3'), ['g-tc-tc3']),
+    step('Slowly open TC2', () => G.tcO('tc2'), ['g-tc-tc2']),
+    step('Open the High Bleed and bleed air, then close it', bleedH, ['g-knob-HB']),
+    step('Close the Outlet shut-off valve', () => G.svC('sv2'), ['g-sv-sv2']),
+    step('Close the Inlet shut-off valve', () => G.svC('sv1'), ['g-sv-sv1']),
+    tcStep('Open', 'tc3'),
+    step('Record CV #1 and the Inlet valve', () => !!G.rad('r_cv1s') && !!G.rad('r_sv1s') && (G.rep('r_cv1') || G.rad('r_cv1s') === 'leak'), ['r_cv1', 'r_sv1s0', 'g-tee-knob'], 'CV #1 must read ≥ 1.0 psid. If water keeps running from the short tube, partially open the compensating tee (orange knob) until it quits, then read the gauge.'),
+    { s: 'Test #2: Check Valve #2' },
+    tcStep('Close', 'tc2'), tcStep('Close', 'tc3'),
+    step('Open the Inlet shut-off valve', () => G.svO('sv1'), ['g-sv-sv1']),
+    step('Move the short tube to TC4', () => G.acc('tube') === 'tc4', ['g-acc-tube']),
+    step('Install the compensating tee and High hose on TC3', () => G.acc('tee') === 'tc3' && G.att('H') === 'tc3', ['g-acc-tee', 'g-hose-H'], 'Pull the red hose off the tee, move the tee to TC3, then put the hose back on it. Close the tee valve.'),
+    step('Open TC4 to fill the short tube', () => st.acc.tube.filled && G.tcO('tc4'), ['g-tc-tc4']),
+    tcStep('Close', 'tc4'),
+    step('Slowly open TC3', () => G.tcO('tc3'), ['g-tc-tc3']),
+    step('Open the High Bleed and bleed air, then close it', bleedH, ['g-knob-HB']),
+    step('Close the Inlet shut-off valve', () => G.svC('sv1'), ['g-sv-sv1']),
+    tcStep('Open', 'tc4'),
+    step('Record CV #2 and the Outlet valve', () => !!G.rad('r_cv2s') && !!G.rad('r_sv2s') && (G.rep('r_cv2') || G.rad('r_cv2s') === 'leak'), ['r_cv2', 'r_sv2s0', 'g-tee-knob'], 'CV #2 must read ≥ 1.0 psid. If water keeps running from the short tube, use the compensating tee to stop it, then read.'),
+    { s: 'Final' },
+    tcStep('Close', 'tc3'), tcStep('Close', 'tc4'),
+    step('Open the Inlet shut-off valve', () => G.svO('sv1'), ['g-sv-sv1']),
+    step('Slowly open the Outlet shut-off valve', () => G.svO('sv2'), ['g-sv-sv2']),
+    step('Remove all equipment', G.noGear, ['g-hose-H', 'g-acc-tube', 'g-acc-tee']),
+    step('Open all needle valves on the test kit', G.kitOpen, KITIDS),
+    step('Verify the field test form, make the call', () => !!G.rad('r_all'), ['r_all0']),
+    step('Notify the customer of results and that water is restored, then submit', () => st.submitted, ['c_results', 'btnSubmit']),
+  ],
+  pvb: [
+    { s: 'Preparation' },
+    step('PPE, notify customer, inspect area', () => G.c('c_ppe') && G.c('c_notify') && G.c('c_inspect'), ['c_ppe', 'c_notify', 'c_inspect'], 'Tick them in the report checklist.'),
+    step('Remove the air inlet canopy', () => st.canopyOff, ['g-canopy'], 'Click the green canopy.'),
+    step('Flush TC1: open, then close', () => st.tc.tc1.flushed && G.tcC('tc1'), ['g-tc-tc1']),
+    step('Flush TC2: open, then close', () => st.tc.tc2.flushed && G.tcC('tc2'), ['g-tc-tc2']),
+    step('Attach fittings (as required)', () => G.c('c_fit'), ['c_fit']),
+    step('Inspect test kit: close all needle valves', G.kitClosed, KITIDS, 'The kit comes out of the case with its needle valves open. Close all five.'),
+    { s: 'Test #1: Air Inlet' },
+    step('Level the test gauge and Low hose end with the air inlet', () => st.leveled, ['btnLevel'], 'Use the gauge-height button at the top-left of the scene.'),
+    step('Attach the High hose to TC2', () => G.att('H') === 'tc2', ['g-hose-H']),
+    step('Slowly open TC2', () => G.tcO('tc2'), ['g-tc-tc2']),
+    step('Open the High Bleed and bleed air, then close it', bleedH, ['g-knob-HB'], 'The gauge pegs at line pressure. That is normal.'),
+    step('Close the Outlet shut-off valve', () => G.svC('sv2'), ['g-sv-sv2']),
+    step('Close the Inlet shut-off valve', () => G.svC('sv1'), ['g-sv-sv1']),
+    step('Place a finger on top of the air inlet', () => st.finger, ['g-poppet'], 'Click the air inlet poppet.'),
+    step('Slightly open the High Bleed (¼ turn max)', m => st.events.some(e => e.type === 'ai') || (st.P.B < 0.05 && m.t > 4), ['g-knob-HB', 'gauge'], 'The needle comes off the peg and falls. You want the reading at the moment the air inlet opens.'),
+    step('Record when the air inlet opens', () => !!G.rad('r_ais') && (G.rep('r_ai') || G.rad('r_ais') === 'no'), ['r_ai', 'r_ais0'], 'Must be ≥ 1.0 psi. If it reached zero without opening, mark Did not open.'),
+    tcStep('Close', 'tc2'),
+    step('Close the High Bleed valve', () => G.k('HB') < 0.01, ['g-knob-HB']),
+    step('Remove the High hose from TC2', () => !G.att('H'), ['g-hose-H']),
+    { s: 'Test #2: Check Valve' },
+    step('Open the Inlet shut-off valve (quickly)', () => G.svO('sv1') && !st.aiOpen, ['g-sv-sv1'], 'Water pressure snaps the air inlet closed.'),
+    step('Attach the High hose to TC1', () => G.att('H') === 'tc1', ['g-hose-H']),
+    step('Slowly open TC1', () => G.tcO('tc1'), ['g-tc-tc1']),
+    step('Open the High Bleed and bleed air, then close it', bleedH, ['g-knob-HB']),
+    step('Close the Inlet shut-off valve', () => G.svC('sv1'), ['g-sv-sv1']),
+    tcStep('Open', 'tc2'),
+    step('Record the check valve when water stops running from TC2', () => !!G.rad('r_cks') && (G.rep('r_ck') || G.rad('r_cks') === 'leak'), ['r_ck', 'r_cks0'], 'Must be ≥ 1.0 psid.'),
+    { s: 'Final' },
+    step('Close Test Cocks #1 and #2', G.allTcClosed, ['g-tc-tc1', 'g-tc-tc2']),
+    step('Remove all equipment', G.noGear, ['g-hose-H']),
+    step('Replace the air inlet canopy', () => !st.canopyOff, ['g-canopy']),
+    step('Open the Inlet shut-off valve', () => G.svO('sv1'), ['g-sv-sv1']),
+    step('Slowly open the Outlet shut-off valve', () => G.svO('sv2'), ['g-sv-sv2']),
+    step('Open all needle valves on the test kit', G.kitOpen, KITIDS),
+    step('Verify the field test form, make the call', () => !!G.rad('r_all'), ['r_all0']),
+    step('Notify customer of results and that water is restored, then submit', () => st.submitted, ['c_results', 'btnSubmit']),
+  ],
+};
+let renderedStep = -1;
+function advanceSteps(dt) {
+  if (mode !== 'guided') return;
+  const L = STEPS[devKey]; let guard = 0;
+  while (st.step < L.length && guard++ < 60) {
+    const s = L[st.step];
+    if (s.s) { st.step++; st.stepMem = { t: 0 }; continue; }
+    if (guard === 1) st.stepMem.t = (st.stepMem.t || 0) + dt;
+    if (s.ok(st.stepMem)) { st.step++; st.stepMem = { t: 0 }; } else break;
+  }
+  if (renderedStep !== st.step) { renderSteps(); renderedStep = st.step; }
+}
+function renderSteps() {
+  document.querySelectorAll('.pulse').forEach(e => e.classList.remove('pulse'));
+  const box = $('steps');
+  if (mode === 'exam') {
+    $('stepsTitle').textContent = 'Exam';
+    box.innerHTML = `<div class="exam-note">No hints and no digital readout. Run the field test from your sheet, fill out the report, and submit.<ul style="margin-top:6px">${examReminders()}</ul><div style="margin-top:8px;color:var(--muted)">Grading checks your readings (within 0.3 psid), your pass/fail call, the checklist, and how you left the site.</div></div>`;
+    return;
+  }
+  $('stepsTitle').textContent = 'Field test procedure (guided)';
+  const L = STEPS[devKey]; let n = 0, html = '';
+  L.forEach((s, i) => {
+    if (s.s) { n = 0; html += `<div class="sec">${s.s}</div>`; return; }
+    n++;
+    const cls = i < st.step ? 'done' : i === st.step ? 'cur' : 'todo';
+    html += `<div class="step ${cls}"><div class="n">${i < st.step ? '✓' : n}</div><div><div><b>${s.h}</b></div>${i === st.step && s.d ? `<div class="d">${s.d}</div>` : ''}</div></div>`;
+  });
+  box.innerHTML = `<div class="steps">${html}</div>`;
+  const cur = L[st.step];
+  if (cur && cur.hl) for (const id of cur.hl) { const el = $(id); if (el) (el.tagName === 'INPUT' && el.type !== 'number' ? el.parentElement : el).classList.add('pulse'); }
+  const c = box.querySelector('.step.cur'); if (c) c.scrollIntoView({ block: 'nearest' });
+}
+function examReminders() {
+  if (devKey === 'rpz') return '<li>Test #1 CV #1 closed tight / leaking</li><li>Test #2 relief valve opening (≥ 2.0 psid)</li><li>Test #3 backpressure: CV #2 tight / leaking</li><li>Test #4 CV #1 differential (≥ 5.0 psid)</li><li>Test #5 outlet shut-off tight / leaking</li><li>Test #6 CV #2 differential (≥ 1.0 psid)</li>';
+  if (devKey === 'dc') return '<li>Test #1 CV #1 (≥ 1.0 psid) + inlet valve, short tube on TC3</li><li>Test #2 CV #2 (≥ 1.0 psid) + outlet valve, short tube on TC4</li>';
+  return '<li>Test #1 air inlet opening (≥ 1.0 psi)</li><li>Test #2 check valve (≥ 1.0 psid)</li>';
+}
+
+// =====================================================================
+// REPORT & GRADING
+// =====================================================================
+function radio(name, opts) { return `<span class="rad">${opts.map(([v, l, bad], i) => `<input type="radio" name="${name}" id="${name}${i}" value="${v}" ${bad ? 'class="bad"' : ''}><label for="${name}${i}">${l}</label>`).join('')}</span>`; }
+const TIGHT = [['tight', 'Closed tight'], ['leak', 'Leaking', 1]];
+const PRE = {
+  rpz: [['c_notify', 'Notify customer'], ['c_inspect', 'Inspect area'], ['c_fit', 'Attach fittings (as required)']],
+  dc: [['c_ppe', 'Tester has proper PPE'], ['c_notify', 'Notify customer'], ['c_inspect', 'Inspect area'], ['c_fit', 'Attach fittings (as required)']],
+};
+PRE.pvb = PRE.dc;
+function buildReport() {
+  const num = id => `<input type="number" step="0.1" min="0" max="20" id="${id}" inputmode="decimal">`;
+  const row = (l, f) => `<div class="row"><label>${l}</label><div class="f">${f}</div></div>`;
+  let h = `<div class="chkl"><div class="chkh">Preparation</div>${PRE[devKey].map(([id, l]) => `<label><input type="checkbox" id="${id}"> ${l}</label>`).join('')}</div>`;
+  if (devKey === 'rpz') {
+    h += row('Test #1 CV #1', radio('r_cv1s', TIGHT));
+    h += row('Test #2 Relief valve opened at', `${num('r_rv')} psid`);
+    h += row('Test #3 CV #2 (backpressure)', radio('r_cv2bs', TIGHT));
+    h += row('Test #4 CV #1 differential', `${num('r_cv1')} psid`);
+    h += row('Test #5 Outlet shut-off', radio('r_sv2s', TIGHT));
+    h += row('Test #6 CV #2 differential', `${num('r_cv2')} psid`);
+  } else if (devKey === 'dc') {
+    h += row('Test #1 CV #1', `${num('r_cv1')} psid ${radio('r_cv1s', TIGHT)}`);
+    h += row('Inlet shut-off', radio('r_sv1s', TIGHT));
+    h += row('Test #2 CV #2', `${num('r_cv2')} psid ${radio('r_cv2s', TIGHT)}`);
+    h += row('Outlet shut-off', radio('r_sv2s', TIGHT));
+  } else {
+    h += row('Test #1 Air inlet opened at', `${num('r_ai')} psi ${radio('r_ais', [['open', 'Opened'], ['no', 'Did not open', 1]])}`);
+    h += row('Test #2 Check valve', `${num('r_ck')} psid ${radio('r_cks', TIGHT)}`);
+  }
+  h += row('Assembly', radio('r_all', [['pass', 'PASS'], ['fail', 'FAIL', 1]]));
+  if (devKey !== 'rpz') h += `<div class="chkl"><label><input type="checkbox" id="c_results"> Customer notified of results and that water has been restored</label></div>`;
+  $('report').innerHTML = h;
+  $('report').querySelectorAll('input[type=number]').forEach(inp => inp.addEventListener('change', () => {
+    const air = HOSES.some(hd => hd.id !== 'B' && st.hose[hd.id].att && st.tc[st.hose[hd.id].att].s > 0.5 && !st.hose[hd.id].purged);
+    if (air) flag('airRead', 'A reading was recorded while a hose still had air in it. Bleed hoses before reading.');
+    if (levelErr()) flag('level', `A reading was recorded with the gauge sitting on the ground instead of level with the ${D.key === 'pvb' ? 'air inlet' : 'short tube discharge'}. That reads about ${LEVEL_ERR} psi high.`);
+  }));
+}
+
+function truth() {
+  const p = params, T = { why: [] };
+  if (devKey === 'rpz') {
+    T.rv = p.rv.k; T.cv1 = p.cv1.k; T.cv2bp = !p.cv2.lr; T.sv2 = !p.sv2.leak; T.cv2 = p.cv2.k;
+    T.pass = T.rv >= 2.0 && T.cv1 >= 5.0 && T.cv2bp && T.cv2 >= 1.0;
+    if (T.rv < 2.0) T.why.push(`Relief valve opened at ${T.rv.toFixed(1)} psid (needs ≥ 2.0)`);
+    if (T.cv1 < 5.0) T.why.push(`CV #1 only ${T.cv1.toFixed(1)} psid (needs ≥ 5.0)`);
+    if (!T.cv2bp) T.why.push('CV #2 leaks under backpressure');
+    if (T.cv2 < 1.0) T.why.push(`CV #2 only ${T.cv2.toFixed(1)} psid (needs ≥ 1.0)`);
+  } else if (devKey === 'dc') {
+    T.cv1 = p.cv1.k; T.cv1t = !p.cv1.lf; T.cv2 = p.cv2.k; T.cv2t = !p.cv2.lf; T.sv1 = !p.sv1.leak; T.sv2 = !p.sv2.leak;
+    T.pass = T.cv1t && T.cv2t && T.cv1 >= 1 && T.cv2 >= 1;
+    for (const n of [1, 2]) { if (!T['cv' + n + 't']) T.why.push(`CV #${n} leaks (the reading would not hold)`); else if (T['cv' + n] < 1) T.why.push(`CV #${n} held only ${T['cv' + n].toFixed(1)} psid (needs ≥ 1.0)`); }
+  } else {
+    T.aiWorks = p.ai.works; T.ai = p.ai.k; T.ck = p.ck.k; T.ckt = !p.ck.lf;
+    T.pass = T.aiWorks && T.ai >= 1 && T.ckt && T.ck >= 1;
+    if (!T.aiWorks) T.why.push('Air inlet never opened'); else if (T.ai < 1) T.why.push(`Air inlet opened at only ${T.ai.toFixed(1)} psi (needs ≥ 1.0)`);
+    if (!T.ckt) T.why.push('Check valve leaks (reading would not hold)'); else if (T.ck < 1) T.why.push(`Check valve held only ${T.ck.toFixed(1)} psid (needs ≥ 1.0)`);
+  }
+  return T;
+}
+
+function submitReport() {
+  if (st.submitted) return;
+  st.submitted = true;
+  const T = truth(), rows = [], info = [];
+  const num = id => { const v = parseFloat($(id).value); return isNaN(v) ? null : v; };
+  const rad = G.rad;
+  const numRow = (label, id, tv) => { const y = num(id); const d = y == null ? 99 : Math.abs(y - tv); rows.push({ label, you: y == null ? '—' : y.toFixed(1), act: tv.toFixed(1), sc: d <= 0.3 ? 1 : d <= 0.6 ? 0.5 : 0 }); };
+  const radRow = (label, name, tv, map) => { const y = rad(name); rows.push({ label, you: y ? map[y] : '—', act: map[tv], sc: y === tv ? 1 : 0 }); };
+  const TM = { tight: 'Tight', leak: 'Leaking' };
+  if (devKey === 'rpz') {
+    radRow('#1 CV #1', 'r_cv1s', 'tight', TM);
+    numRow('#2 Relief valve', 'r_rv', T.rv);
+    radRow('#3 CV #2 backpressure', 'r_cv2bs', T.cv2bp ? 'tight' : 'leak', TM);
+    if (T.cv2bp) numRow('#4 CV #1 differential', 'r_cv1', T.cv1);
+    else info.push(`Test #4 not graded: with CV #2 leaking under backpressure the zone keeps refilling, so CV #1 can't show its true ${T.cv1.toFixed(1)} psid.`);
+    if (T.cv2bp) radRow('#5 Outlet shut-off', 'r_sv2s', T.sv2 ? 'tight' : 'leak', TM);
+    else info.push('Test #5 not graded: with CV #2 leaking under backpressure, the outlet shut-off reading isn’t reliable.');
+    if (T.sv2) numRow('#6 CV #2 differential', 'r_cv2', T.cv2);
+    else info.push(`Test #6 not graded: the leaking outlet shut-off falsifies the CV #2 reading (actual spring value ${T.cv2.toFixed(1)}).`);
+  } else if (devKey === 'dc') {
+    if (T.cv1t) numRow('#1 CV #1 reading', 'r_cv1', T.cv1);
+    radRow('#1 CV #1', 'r_cv1s', T.cv1t ? 'tight' : 'leak', TM);
+    radRow('Inlet shut-off', 'r_sv1s', T.sv1 ? 'tight' : 'leak', TM);
+    if (T.cv2t) numRow('#2 CV #2 reading', 'r_cv2', T.cv2);
+    radRow('#2 CV #2', 'r_cv2s', T.cv2t ? 'tight' : 'leak', TM);
+    radRow('Outlet shut-off', 'r_sv2s', T.sv2 ? 'tight' : 'leak', TM);
+  } else {
+    radRow('#1 Air inlet', 'r_ais', T.aiWorks ? 'open' : 'no', { open: 'Opened', no: 'Did not open' });
+    if (T.aiWorks) numRow('#1 Air inlet opening', 'r_ai', T.ai);
+    if (T.ckt) numRow('#2 Check valve reading', 'r_ck', T.ck);
+    radRow('#2 Check valve', 'r_cks', T.ckt ? 'tight' : 'leak', TM);
+  }
+  const callOk = rad('r_all') === (T.pass ? 'pass' : 'fail');
+  const notes = Object.values(st.flags);
+  for (const [id, l] of PRE[devKey]) if (!G.c(id)) notes.push(`Checklist item skipped: ${l}.`);
+  if (devKey !== 'rpz' && !G.c('c_results')) notes.push('Didn’t notify the customer of the results and that water was restored.');
+  if (!G.svO('sv1') || !G.svO('sv2')) notes.push('Service was not restored: a shut-off was left closed. The customer has no water.');
+  if (!G.allTcClosed()) notes.push('A test cock was left open.');
+  if (!G.noGear()) notes.push('Equipment was still connected when you submitted.');
+  if (!G.kitOpen()) notes.push('Kit needle valves weren’t opened at the end (Final step: open all needle valves on the test kit).');
+  if (D.ai && st.canopyOff) notes.push('The air inlet canopy was never replaced.');
+  const order = { rpz: [['tc4', 'tc3', 'tc2', 'tc1'], ['tc1', 'tc2', 'tc3', 'tc4']], dc: [['tc1', 'tc2', 'tc3', 'tc4'], ['tc4', 'tc3', 'tc2', 'tc1']] }[devKey];
+  if (order) {
+    const fmt = a => a.map(x => '#' + x.slice(2)).join(', ');
+    if (st.flushOpen.length === 4 && st.flushOpen.join() !== order[0].join()) notes.push(`Flush order: the sheet opens ${fmt(order[0])}; you opened ${fmt(st.flushOpen)}.`);
+    if (st.flushClose.length === 4 && st.flushClose.join() !== order[1].join()) notes.push(`Flush order: the sheet closes ${fmt(order[1])}; you closed ${fmt(st.flushClose)}.`);
+  }
+  const ev = st.events.find(e => e.type === (devKey === 'pvb' ? 'ai' : 'rv') && (devKey === 'pvb' || e.lc));
+  const coach = [];
+  if (ev) {
+    const unit = devKey === 'pvb' ? 'psi' : 'psid';
+    coach.push(`At the moment the ${devKey === 'pvb' ? 'air inlet opened' : 'relief valve started to drip'}, the needle showed ${Math.max(0, ev.gauge).toFixed(1)} ${unit} (actual ${ev.val.toFixed(1)}).`);
+    if (ev.rate > (devKey === 'pvb' ? 1.0 : 0.5)) notes.push(`You were dropping the pressure fast (${ev.rate.toFixed(1)} ${unit}/s) when it opened. The needle lags, so the reading comes out off. Go slower.`);
+  }
+  if (devKey === 'rpz' && !st.events.some(e => e.type === 'rv' && e.lc)) notes.push('The relief valve opening point was never actually observed.');
+  const pts = rows.reduce((a, r) => a + r.sc, 0) + (callOk ? 2 : 0), max = rows.length + 2;
+  const score = clamp(Math.round(100 * pts / max - notes.length * 4), 0, 100);
+  saveHistory(score);
+  let html = `<h3>Results</h3><div class="score">${score}%</div>`;
+  html += `<div class="verdict ${T.pass ? 'pass' : 'fail'}">This assembly ${T.pass ? 'PASSES' : 'FAILS'}${T.why.length ? ': ' + T.why.join('; ') : ''}</div>`;
+  html += `<div style="font-size:12.5px;margin-bottom:6px">Your call: <b class="${callOk ? 'ok' : 'no'}">${rad('r_all') ? rad('r_all').toUpperCase() : 'none'}</b> ${callOk ? '✓' : '✗'}</div>`;
+  html += `<div class="res-row hd"><div>Item</div><div>You</div><div>Actual</div><div></div></div>`;
+  for (const r of rows) html += `<div class="res-row"><div>${r.label}</div><div>${r.you}</div><div>${r.act}</div><div class="${r.sc === 1 ? 'ok' : r.sc ? 'mid' : 'no'}">${r.sc === 1 ? '✓' : r.sc ? '≈' : '✗'}</div></div>`;
+  html += `<div style="font-size:11.5px;color:var(--muted);margin-top:6px">✓ within 0.3 &nbsp; ≈ within 0.6</div>`;
+  for (const i of info) html += `<div style="font-size:12px;color:var(--muted);margin-top:6px">${i}</div>`;
+  html += `<h3 style="margin-top:12px">Procedure review</h3><ul class="notes">${notes.length ? notes.map(n => `<li>${n}</li>`).join('') : '<li class="good">Clean procedure. Nothing flagged.</li>'}${coach.map(c => `<li class="good">${c}</li>`).join('')}</ul>`;
+  html += `<div class="btns"><button class="btn primary" onclick="newAssembly()">Next assembly</button><button class="btn" onclick="retry()">Try this one again</button></div>`;
+  const rc = $('cardResult'); rc.innerHTML = html; rc.hidden = false; rc.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  $('btnSubmit').disabled = true; $('btnCut').disabled = false;
+  log(`Report submitted: ${score}%`);
+}
+
+function saveHistory(score) {
+  try {
+    const h = JSON.parse(localStorage.getItem('bfsim_hist') || '[]');
+    h.push({ d: Date.now(), dev: devKey, mode, score }); localStorage.setItem('bfsim_hist', JSON.stringify(h.slice(-200)));
+  } catch (_) {}
+  showStats();
+}
+function showStats() {
+  try {
+    const h = JSON.parse(localStorage.getItem('bfsim_hist') || '[]');
+    if (!h.length) { $('stats').textContent = ''; return; }
+    const last = h.filter(x => x.mode === 'exam').slice(-10);
+    const avg = last.length ? Math.round(last.reduce((a, x) => a + x.score, 0) / last.length) : null;
+    $('stats').textContent = `${h.length} tests logged${avg != null ? ` · exam avg (last ${last.length}): ${avg}%` : ''}`;
+  } catch (_) {}
+}
+
+// =====================================================================
+// LIFECYCLE
+// =====================================================================
+function updateLevelBtn() {
+  const b = $('btnLevel'); const ref = D.key === 'pvb' ? 'air inlet' : D.key === 'dc' ? 'short tube discharge' : 'test cocks';
+  b.textContent = st.leveled ? `Gauge height: level with ${ref} ✓` : 'Gauge height: sitting on the ground';
+  b.classList.toggle('on', st.leveled);
+}
+function setup(newParams) {
+  D = DEVICES[devKey];
+  if (newParams || !params || params._dev !== devKey) { params = genParams(devKey); params._dev = devKey; }
+  st = freshState(params);
+  for (const p of parts) { p.el.remove(); pool.push(p.el); } parts.length = 0;
+  drawDevice(); drawKit(); drawGear(); buildReport();
+  $('log').innerHTML = ''; $('cardResult').hidden = true; $('btnSubmit').disabled = false;
+  $('devName').textContent = D.name; $('devSub').textContent = D.sub;
+  if (mode === 'exam') cutaway = false;
+  $('gCut').style.display = cutaway ? '' : 'none';
+  $('btnCut').classList.toggle('on', cutaway); $('btnCut').disabled = mode === 'exam';
+  updateLevelBtn();
+  renderedStep = -1; renderSteps(); advanceSteps(0);
+  log(`Arrived on site: ${D.short}, line pressure about ${Math.round(params.S)} psi. Both shut-offs open. Test kit out of the case with its needle valves open.`);
+  render();
+}
+function newAssembly() { setup(true); }
+function retry() { setup(false); }
+
+document.querySelectorAll('#devSeg button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('#devSeg button').forEach(x => x.classList.toggle('on', x === b));
+  devKey = b.dataset.dev; setup(true);
+});
+document.querySelectorAll('#modeSeg button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('#modeSeg button').forEach(x => x.classList.toggle('on', x === b));
+  mode = b.dataset.mode; setup(true);
+});
+$('btnNew').onclick = newAssembly;
+$('btnRetry').onclick = retry;
+$('btnSubmit').onclick = submitReport;
+$('btnLevel').onclick = () => { st.leveled = !st.leveled; updateLevelBtn(); log(st.leveled ? 'Gauge and low hose end raised level with the reference point' : 'Gauge set back on the ground'); };
+$('btnCut').onclick = () => { cutaway = !cutaway; $('gCut').style.display = cutaway ? '' : 'none'; $('btnCut').classList.toggle('on', cutaway); };
+
+let lastT = performance.now();
+function tick(dt) {
+  physics(dt); water(dt); advanceSteps(dt);
+  for (const o of [...HOSES.map(h => st.hose[h.id]), st.acc.tube, st.acc.tee]) if (!o.att && !o.drag && o.y < o.gy) o.y = Math.min(o.gy, o.y + dt * 600);
+}
+function frame(now) {
+  const dt = clamp((now - lastT) / 1000, 0.001, 0.05); lastT = now;
+  tick(dt); render();
+  $('timer').textContent = fmtT(st.t);
+  requestAnimationFrame(frame);
+}
+
+window.sim = {
+  get st() { return st; }, get params() { return params; },
+  run(sec) { const n = Math.round(sec * 60); for (let i = 0; i < n; i++) tick(1 / 60); render(); },
+  tc: toggleTC, sv: toggleSV, attach, detach, attachItem, detachItem, kit: setKit, tee(v) { st.acc.tee.t = v; },
+  submit: submitReport, setup, truth,
+  level() { $('btnLevel').click(); }, hand() { st.hand = !st.hand; }, canopy() { st.canopyOff = !st.canopyOff; }, finger() { st.finger = !st.finger; },
+  check(id) { $(id).checked = true; },
+  force(o) { for (const k in o) params[k] = Object.assign({}, params[k], o[k]); setup(false); },
+  setDev(k) { devKey = k; document.querySelectorAll('#devSeg button').forEach(x => x.classList.toggle('on', x.dataset.dev === k)); setup(true); },
+  setMode(m) { mode = m; setup(true); },
+};
+
+defs(); background(); setup(true); showStats();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
